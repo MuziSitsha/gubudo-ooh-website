@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B0B0B" />
+  <title>GUBUDO OOH - Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --black: #0B0B0B;
+      --mid: #111111;
+      --card: #161616;
+      --green: #00E676;
+      --yellow: #FFC107;
+      --red: #FF5252;
+      --blue: #448AFF;
+      --white: #FFFFFF;
+      --dim: #555;
+      --text: rgba(255,255,255,0.75);
+      --sub: rgba(255,255,255,0.4);
+      --border: rgba(255,255,255,0.07);
+      --r: 6px;
+      --sidebar-w: 220px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--black);
+      color: var(--white);
+      min-height: 100%;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body.auth-locked { overflow: hidden; }
+    a { color: inherit; text-decoration: none; }
+    button { cursor: pointer; border: none; background: none; font: inherit; color: inherit; }
+    input, select { font: inherit; color: inherit; }
+    select::-ms-expand { display: none; }
+
+    .layout { display: flex; min-height: 100svh; }
+    .sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--mid);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 100;
+      transition: transform 0.3s ease;
+      padding-top: env(safe-area-inset-top, 0);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .sb-head { padding: 1.5rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .sb-logo { font-family: 'Poppins', sans-serif; font-size: 1.2rem; letter-spacing: 0.1em; font-weight: 700; }
+    .sb-logo span { color: var(--green); }
+    .sb-role { font-size: 0.65rem; font-family: 'Poppins', sans-serif; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sub); margin-top: 0.2rem; }
+    .sb-nav { flex: 1; padding: 1rem 0; overflow-y: auto; }
+    .sb-section { font-size: 0.58rem; font-family: 'Poppins', sans-serif; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); padding: 0.5rem 1.25rem 0.4rem; }
+    .sb-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.83rem;
+      color: var(--sub);
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sb-link:hover { color: var(--white); background: rgba(255,255,255,0.03); }
+    .sb-link.active { color: var(--green); border-left-color: var(--green); background: rgba(0,230,118,0.05); }
+    .sb-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .sb-foot { padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+    .sb-back { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; color: var(--sub); transition: color 0.15s; }
+    .sb-back:hover { color: var(--white); }
+    .sb-back svg { width: 14px; height: 14px; }
+
+    .main {
+      flex: 1;
+      margin-left: var(--sidebar-w);
+      display: flex;
+      flex-direction: column;
+      min-height: 100svh;
+      padding-top: env(safe-area-inset-top, 0);
+    }
+    .topbar {
+      background: var(--mid);
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      position: sticky;
+      top: env(safe-area-inset-top, 0);
+      z-index: 90;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 1rem; }
+    .menu-btn {
+      display: none;
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.05);
+      border-radius: var(--r);
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .menu-btn svg { width: 16px; height: 16px; color: var(--text); }
+    .topbar-title { font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 700; }
+    .topbar-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; }
+    .tb-badge { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--sub); font-family: 'Poppins', sans-serif; font-weight: 600; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: blink 1.8s ease-in-out infinite; }
+    .sync-note { font-size: 0.7rem; color: var(--sub); }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .btn-refresh {
+      background: rgba(0,230,118,0.1);
+      border: 1px solid rgba(0,230,118,0.2);
+      color: var(--green);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      border-radius: var(--r);
+      transition: all 0.2s;
+    }
+    .btn-refresh:hover { background: rgba(0,230,118,0.18); }
+    .btn-export {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      border-radius: var(--r);
+      transition: all 0.2s;
+    }
+    .btn-export:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); }
+
+    .content { padding: 1.75rem; flex: 1; max-width: 1280px; }
+    .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.75rem; }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.25rem 1.4rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .stat-card:hover { border-color: rgba(255,255,255,0.14); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .stat-card.g::before { background: var(--green); }
+    .stat-card.y::before { background: var(--yellow); }
+    .stat-card.b::before { background: var(--blue); }
+    .stat-card.r::before { background: var(--red); }
+    .stat-lbl { font-size: 0.65rem; font-family: 'Poppins', sans-serif; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sub); margin-bottom: 0.65rem; }
+    .stat-num { font-family: 'Poppins', sans-serif; font-size: 2.3rem; line-height: 1; margin-bottom: 0.25rem; font-weight: 700; }
+    .stat-card.g .stat-num { color: var(--green); }
+    .stat-card.y .stat-num { color: var(--yellow); }
+    .stat-card.b .stat-num { color: var(--blue); }
+    .stat-card.r .stat-num { color: var(--red); }
+    .stat-sub { font-size: 0.74rem; color: var(--sub); }
+
+    .grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+    .grid2b { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+    .panel-head { padding: 1rem 1.4rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .panel-title { font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 700; }
+    .panel-sub { font-size: 0.7rem; color: var(--sub); }
+    .panel-body { padding: 1.4rem; }
+    .panel-body.np { padding: 0; }
+    .chart-wrap { position: relative; height: 280px; }
+    .mini-chart-wrap { position: relative; height: 200px; }
+
+    .pipeline { display: flex; flex-direction: column; gap: 0; }
+    .pipeline-row { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.4rem; border-bottom: 1px solid var(--border); gap: 1rem; }
+    .pipeline-row:last-child { border-bottom: none; }
+    .pip-label { font-size: 0.83rem; font-weight: 500; flex: 1; }
+    .pip-bar-wrap { flex: 2; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .pip-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+    .pip-bar.pending { background: var(--yellow); }
+    .pip-bar.approved { background: var(--green); }
+    .pip-bar.rejected { background: var(--red); }
+    .pip-count { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 0.85rem; min-width: 28px; text-align: right; }
+
+    .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 760px; }
+    .tbl th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--sub);
+      background: rgba(255,255,255,0.025);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .tbl td { padding: 0.85rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); vertical-align: middle; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: rgba(255,255,255,0.02); }
+    .tbl td:first-child { color: var(--white); font-weight: 500; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.65rem;
+      border-radius: 2px;
+    }
+    .status-pill.pending { background: rgba(255,193,7,0.1); color: var(--yellow); border: 1px solid rgba(255,193,7,0.25); }
+    .status-pill.approved { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.25); }
+    .status-pill.rejected { background: rgba(255,82,82,0.1); color: var(--red); border: 1px solid rgba(255,82,82,0.25); }
+    .score-bar { display: flex; align-items: center; gap: 0.5rem; }
+    .score-dots { display: flex; gap: 2px; }
+    .s-dot { width: 7px; height: 7px; border-radius: 2px; background: rgba(255,255,255,0.08); }
+    .s-dot.on { background: var(--green); }
+    .s-dot.mid { background: var(--yellow); }
+    .s-dot.low { background: var(--red); }
+    .high-val { color: var(--green); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.72rem; }
+    .tbl-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .act-btn {
+      padding: 0.3rem 0.6rem;
+      border-radius: 3px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .act-btn.approve { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid rgba(0,230,118,0.2); }
+    .act-btn.approve:hover { background: rgba(0,230,118,0.2); }
+    .act-btn.reject { background: rgba(255,82,82,0.08); color: var(--red); border: 1px solid rgba(255,82,82,0.18); }
+    .act-btn.reject:hover { background: rgba(255,82,82,0.18); }
+    .act-btn.wa { background: rgba(37,211,102,0.1); color: #25D366; border: 1px solid rgba(37,211,102,0.25); }
+    .act-btn.wa:hover { background: rgba(37,211,102,0.2); }
+
+    .tbl-filters { display: flex; align-items: center; gap: 0.75rem; padding: 0.9rem 1.4rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+    .filter-sel {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.45rem 1.8rem 0.45rem 0.8rem;
+      font-size: 0.78rem;
+      color: var(--text);
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23555' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.6rem center;
+      transition: border-color 0.15s;
+    }
+    .filter-sel:focus { outline: none; border-color: var(--green); }
+    .filter-sel option { background: #1a1a1a; }
+    .tbl-count { margin-left: auto; font-size: 0.72rem; color: var(--sub); font-family: 'Poppins', sans-serif; font-weight: 600; white-space: nowrap; }
+    .filter-search {
+      min-width: min(240px, 100%);
+      flex: 1 1 220px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.5rem 0.8rem;
+      font-size: 0.78rem;
+      color: var(--text);
+    }
+    .filter-search:focus { outline: none; border-color: var(--green); }
+    .toolbar-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+    .photo-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .photo-modal.open { display: flex; }
+    .photo-sheet {
+      width: min(920px, 100%);
+      max-height: min(90vh, 780px);
+      overflow: auto;
+      background: var(--mid);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem;
+    }
+    .photo-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .photo-title { font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 700; }
+    .photo-sub { font-size: 0.76rem; color: var(--sub); margin-top: 0.2rem; }
+    .photo-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--white);
+      flex-shrink: 0;
+    }
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .photo-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .photo-label {
+      padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid var(--border);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--sub);
+    }
+    .photo-frame {
+      aspect-ratio: 4 / 3;
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--sub);
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 1rem;
+    }
+    .photo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .photo-meta {
+      padding: 0.8rem 0.9rem;
+      font-size: 0.74rem;
+      color: var(--sub);
+      border-top: 1px solid var(--border);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .auth-shell {
+      position: fixed;
+      inset: 0;
+      z-index: 320;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background:
+        radial-gradient(circle at top right, rgba(0,230,118,0.12), transparent 35%),
+        linear-gradient(145deg, #111 0%, #0b0b0b 55%, #090909 100%);
+    }
+    .auth-shell.hidden { display: none; }
+    .auth-card {
+      width: min(460px, 100%);
+      background: rgba(22,22,22,0.96);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+    }
+    .auth-eyebrow,
+    .auth-title,
+    .auth-submit,
+    .admin-email,
+    .auth-note,
+    .btn-logout,
+    .map-label,
+    .score-tag,
+    .standard-pill {
+      font-family: 'Poppins', sans-serif;
+    }
+    .auth-eyebrow {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 0.8rem;
+    }
+    .auth-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.45rem;
+    }
+    .auth-copy {
+      font-size: 0.88rem;
+      color: var(--sub);
+      line-height: 1.65;
+      margin-bottom: 1.25rem;
+    }
+    .auth-form {
+      display: grid;
+      gap: 0.9rem;
+    }
+    .auth-field {
+      display: grid;
+      gap: 0.35rem;
+    }
+    .auth-field label {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--sub);
+      font-weight: 600;
+    }
+    .auth-field input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.8rem 0.9rem;
+    }
+    .auth-field input:focus { outline: none; border-color: var(--green); }
+    .auth-submit,
+    .btn-logout {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--r);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0.82rem 1rem;
+      transition: all 0.2s;
+    }
+    .auth-submit {
+      background: var(--green);
+      color: var(--black);
+    }
+    .btn-logout {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--white);
+    }
+    .auth-status {
+      min-height: 1rem;
+      font-size: 0.76rem;
+      color: var(--sub);
+    }
+    .auth-status.err { color: var(--red); }
+    .auth-status.ok { color: var(--green); }
+    .auth-note {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      color: var(--sub);
+      line-height: 1.5;
+    }
+    .admin-email {
+      font-size: 0.72rem;
+      color: var(--white);
+      font-weight: 600;
+    }
+    .map-wrap {
+      position: relative;
+      min-height: 310px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background:
+        radial-gradient(circle at top, rgba(0,230,118,0.08), transparent 30%),
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      overflow: hidden;
+    }
+    .map-node {
+      position: absolute;
+      min-width: 110px;
+      padding: 0.75rem 0.85rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(11,11,11,0.72);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .map-node.active {
+      border-color: rgba(0,230,118,0.28);
+      box-shadow: 0 12px 30px rgba(0,230,118,0.08);
+    }
+    .map-node strong {
+      display: block;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--white);
+    }
+    .map-label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--sub);
+      margin-bottom: 0.3rem;
+    }
+    .map-jhb { top: 44%; left: 26%; }
+    .map-pretoria { top: 16%; left: 54%; }
+    .map-midrand { top: 36%; left: 47%; }
+    .map-east-rand { top: 48%; right: 17%; }
+    .map-west-rand { top: 50%; left: 6%; }
+    .map-vaal { bottom: 12%; left: 34%; }
+    .map-other { bottom: 10%; right: 12%; }
+    .map-lines {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    .map-lines svg {
+      width: 100%;
+      height: 100%;
+    }
+    .standard-pill,
+    .score-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.26rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.56rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .standard-pill.pass {
+      color: var(--green);
+      background: rgba(0,230,118,0.1);
+      border: 1px solid rgba(0,230,118,0.2);
+    }
+    .standard-pill.fail {
+      color: var(--red);
+      background: rgba(255,82,82,0.1);
+      border: 1px solid rgba(255,82,82,0.18);
+    }
+    .score-tag.high {
+      color: var(--green);
+      background: rgba(0,230,118,0.1);
+      border: 1px solid rgba(0,230,118,0.2);
+    }
+    .score-tag.medium {
+      color: var(--yellow);
+      background: rgba(255,193,7,0.1);
+      border: 1px solid rgba(255,193,7,0.18);
+    }
+    .score-tag.low {
+      color: var(--sub);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .notif-list { display: flex; flex-direction: column; }
+    .notif {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 0.9rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .notif:last-child { border-bottom: none; }
+    .notif:hover { background: rgba(255,255,255,0.02); }
+    .notif-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .notif-icon svg { width: 15px; height: 15px; }
+    .ni-new { background: rgba(0,230,118,0.1); color: var(--green); }
+    .ni-hv { background: rgba(255,193,7,0.1); color: var(--yellow); }
+    .ni-done { background: rgba(68,138,255,0.1); color: var(--blue); }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-msg { font-size: 0.82rem; color: var(--text); line-height: 1.45; }
+    .notif-msg strong { color: var(--white); font-weight: 600; }
+    .notif-time { font-size: 0.68rem; color: var(--dim); margin-top: 0.2rem; }
+    .notif-empty { padding: 2rem 1.4rem; text-align: center; font-size: 0.82rem; color: var(--dim); }
+
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 90; }
+    .overlay.show { display: block; }
+
+    @media (max-width: 1024px) {
+      .stat-row { grid-template-columns: repeat(2,1fr); }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .menu-btn { display: flex; }
+      .grid2b { grid-template-columns: 1fr; }
+      .sync-note { width: 100%; }
+    }
+    @media (max-width: 520px) {
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .content { padding: 1rem; }
+      .topbar { padding: 0.75rem 1rem; }
+      .stat-num { font-size: 2rem; }
+      .chart-wrap { height: 240px; }
+      .panel-head { padding: 0.9rem 1rem; }
+      .pipeline-row { padding: 0.75rem 1rem; }
+      .tbl-filters { padding: 0.9rem 1rem; }
+      .photo-grid { grid-template-columns: 1fr; }
+      .toolbar-actions { width: 100%; }
+      .btn-export { width: 100%; }
+      .map-wrap { min-height: 500px; }
+      .map-node { min-width: 0; width: 44%; }
+      .map-jhb { top: 28%; left: 6%; }
+      .map-pretoria { top: 8%; right: 6%; left: auto; }
+      .map-midrand { top: 42%; left: 28%; }
+      .map-east-rand { top: 54%; right: 6%; }
+      .map-west-rand { top: 54%; left: 6%; }
+      .map-vaal { bottom: 16%; left: 10%; }
+      .map-other { bottom: 16%; right: 6%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+
+  <div class="auth-shell" id="auth-shell">
+    <div class="auth-card">
+      <div class="auth-eyebrow">Protected Admin Access</div>
+      <div class="auth-title">Sign in to view rider applications</div>
+      <p class="auth-copy">The admin dashboard now requires a Supabase-authenticated admin account. Public users can submit applications, but only signed-in admins can review or update them.</p>
+      <form class="auth-form" id="auth-form">
+        <div class="auth-field">
+          <label for="auth-email">Admin Email</label>
+          <input id="auth-email" type="email" autocomplete="username" placeholder="admin@gubudo.co.za" />
+        </div>
+        <div class="auth-field">
+          <label for="auth-password">Password</label>
+          <input id="auth-password" type="password" autocomplete="current-password" placeholder="Enter your password" />
+        </div>
+        <button type="submit" class="auth-submit" id="auth-submit">Unlock Dashboard</button>
+        <div class="auth-status" id="auth-status" aria-live="polite"></div>
+      </form>
+      <div class="auth-note">Create the admin account in Supabase Auth and add the approved admin emails in config.js. RLS policies now allow reads and updates only for authenticated users.</div>
+    </div>
+  </div>
+
+  <div class="layout" id="dashboard-shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-head">
+        <div class="sb-logo">GUBUDO <span>OOH</span></div>
+        <div class="sb-role">Admin Dashboard</div>
+      </div>
+      <nav class="sb-nav">
+        <div class="sb-section">Overview</div>
+        <a href="#" class="sb-link active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+        <div class="sb-section">Applications</div>
+        <a href="#" class="sb-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          All Applicants
+        </a>
+        <a href="#" class="sb-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Approved
+        </a>
+        <a href="#" class="sb-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Pending Review
+        </a>
+        <div class="sb-section">Analytics</div>
+        <a href="#" class="sb-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Area Breakdown
+        </a>
+        <a href="#" class="sb-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Notifications
+        </a>
+      </nav>
+      <div class="sb-foot">
+        <a href="index.html" class="sb-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Back to Landing Page
+        </a>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button type="button" class="menu-btn" id="menu-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="topbar-title">Overview</div>
+        </div>
+        <div class="topbar-right">
+          <div class="admin-email" id="admin-email">Signed out</div>
+          <div class="tb-badge"><div class="live-dot"></div> Live</div>
+          <button type="button" class="btn-refresh" id="refresh-btn">Refresh</button>
+          <button type="button" class="btn-export" id="export-btn">Export CSV</button>
+          <button type="button" class="btn-logout" id="logout-btn">Logout</button>
+          <div class="sync-note" id="sync-note">Waiting for local submissions</div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="stat-row">
+          <div class="stat-card g">
+            <div class="stat-lbl">Total Signups</div>
+            <div class="stat-num" id="s-total">0</div>
+            <div class="stat-sub">All time</div>
+          </div>
+          <div class="stat-card y">
+            <div class="stat-lbl">Pending Review</div>
+            <div class="stat-num" id="s-pending">0</div>
+            <div class="stat-sub">Awaiting approval</div>
+          </div>
+          <div class="stat-card b">
+            <div class="stat-lbl">Approved</div>
+            <div class="stat-num" id="s-approved">0</div>
+            <div class="stat-sub">Ready to install</div>
+          </div>
+          <div class="stat-card r">
+            <div class="stat-lbl">High-Value Riders</div>
+            <div class="stat-num" id="s-hv">0</div>
+            <div class="stat-sub">Score 8 or above</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Signups by Region</div>
+                <div class="panel-sub">Grouped into Johannesburg, Pretoria, East Rand, West Rand, Vaal, and other Gauteng zones</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="chart-wrap">
+                <canvas id="areaChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Approval Pipeline</div>
+            </div>
+            <div class="pipeline">
+              <div class="pipeline-row">
+                <span class="pip-label">Pending</span>
+                <div class="pip-bar-wrap"><div class="pip-bar pending" id="pb-pending" style="width:0%"></div></div>
+                <span class="pip-count" id="pc-pending">0</span>
+              </div>
+              <div class="pipeline-row">
+                <span class="pip-label">Approved</span>
+                <div class="pip-bar-wrap"><div class="pip-bar approved" id="pb-approved" style="width:0%"></div></div>
+                <span class="pip-count" id="pc-approved">0</span>
+              </div>
+              <div class="pipeline-row">
+                <span class="pip-label">Rejected</span>
+                <div class="pip-bar-wrap"><div class="pip-bar rejected" id="pb-rejected" style="width:0%"></div></div>
+                <span class="pip-count" id="pc-rejected">0</span>
+              </div>
+            </div>
+
+            <div class="panel-head" style="margin-top:1rem;">
+              <div class="panel-title">Notifications</div>
+            </div>
+            <div class="notif-list" id="notif-list">
+              <div class="notif-empty">No notifications yet</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2b">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Platform Distribution</div>
+            </div>
+            <div class="panel-body">
+              <div class="mini-chart-wrap"><canvas id="platformChart"></canvas></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Bike Type Distribution</div>
+            </div>
+            <div class="panel-body">
+              <div class="mini-chart-wrap"><canvas id="bikeChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Gauteng Area View</div>
+              <div class="panel-sub">Map-based snapshot of rider concentration by operating region</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="map-wrap" id="area-map">
+              <div class="map-lines" aria-hidden="true">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <path d="M20 58 C30 48, 38 44, 48 42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.1" />
+                  <path d="M48 42 C56 34, 60 28, 66 22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.1" />
+                  <path d="M48 42 C62 50, 72 54, 82 56" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.1" />
+                  <path d="M48 42 C38 56, 34 68, 42 84" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.1" />
+                </svg>
+              </div>
+              <div class="map-node map-jhb" data-region="Johannesburg">
+                <span class="map-label">Johannesburg</span>
+                <strong id="map-johannesburg">0</strong>
+              </div>
+              <div class="map-node map-pretoria" data-region="Pretoria">
+                <span class="map-label">Pretoria</span>
+                <strong id="map-pretoria">0</strong>
+              </div>
+              <div class="map-node map-midrand" data-region="Midrand">
+                <span class="map-label">Midrand</span>
+                <strong id="map-midrand">0</strong>
+              </div>
+              <div class="map-node map-east-rand" data-region="East Rand">
+                <span class="map-label">East Rand</span>
+                <strong id="map-east-rand">0</strong>
+              </div>
+              <div class="map-node map-west-rand" data-region="West Rand">
+                <span class="map-label">West Rand</span>
+                <strong id="map-west-rand">0</strong>
+              </div>
+              <div class="map-node map-vaal" data-region="Vaal">
+                <span class="map-label">Vaal</span>
+                <strong id="map-vaal">0</strong>
+              </div>
+              <div class="map-node map-other" data-region="Other Gauteng">
+                <span class="map-label">Other Gauteng</span>
+                <strong id="map-other-gauteng">0</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">All Applicants</div>
+              <div class="panel-sub">Approve, reject, or open WhatsApp for follow-up</div>
+            </div>
+          </div>
+          <div class="tbl-filters">
+            <input type="search" class="filter-search" id="filter-search" placeholder="Search by name, phone, area, or platform" />
+            <select class="filter-sel" id="filter-area">
+              <option value="">All Areas</option>
+            </select>
+            <select class="filter-sel" id="filter-platform">
+              <option value="">All Platforms</option>
+              <option>Uber Eats</option>
+              <option>Mr Delivery</option>
+              <option>Bolt Food</option>
+              <option>Multiple Platforms</option>
+              <option>Other</option>
+            </select>
+            <select class="filter-sel" id="filter-bike-type">
+              <option value="">All Bike Types</option>
+            </select>
+            <select class="filter-sel" id="filter-activity-zone">
+              <option value="">All Activity Zones</option>
+            </select>
+            <select class="filter-sel" id="filter-status">
+              <option value="">All Statuses</option>
+              <option>Pending</option>
+              <option>Approved</option>
+              <option>Rejected</option>
+            </select>
+            <div class="toolbar-actions">
+              <button type="button" class="btn-export" id="export-filtered-btn">Export Filtered</button>
+            </div>
+            <span class="tbl-count" id="tbl-count">0 applicants</span>
+          </div>
+          <div class="tbl-wrap panel-body np">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Area</th>
+                  <th>Activity Zone</th>
+                  <th>Platform</th>
+                  <th>Bike</th>
+                  <th>Traffic Potential</th>
+                  <th>Quality Score</th>
+                  <th>Minimum Standard</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="photo-modal" id="photo-modal" aria-hidden="true">
+    <div class="photo-sheet">
+      <div class="photo-head">
+        <div>
+          <div class="photo-title" id="photo-title">Applicant Photos</div>
+          <div class="photo-sub" id="photo-sub">Photo review is available for locally saved submissions until cloud storage is connected.</div>
+        </div>
+        <button type="button" class="photo-close" id="photo-close" aria-label="Close photo viewer">x</button>
+      </div>
+      <div class="photo-grid">
+        <div class="photo-card">
+          <div class="photo-label">Bike Photo</div>
+          <div class="photo-frame" id="bike-photo-frame">No bike photo available</div>
+          <div class="photo-meta" id="bike-photo-meta">Upload metadata will appear here when available.</div>
+        </div>
+        <div class="photo-card">
+          <div class="photo-label">Rider + Bike Photo</div>
+          <div class="photo-frame" id="rider-photo-frame">No rider photo available</div>
+          <div class="photo-meta" id="rider-photo-meta">Optional rider photo metadata will appear here when available.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUBMISSIONS_KEY = 'gubudo_submissions';
+    const APP_CONFIG = window.GUBUDO_CONFIG || {};
+    const SUPABASE_URL_PLACEHOLDER = 'YOUR_PROJECT_REF';
+    const SUPABASE_KEY_PLACEHOLDER = 'REPLACE_WITH_YOUR_SUPABASE_ANON_KEY';
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel('gubudo-ooh-live') : null;
+    const REMOTE_TABLE = (APP_CONFIG.supabase && APP_CONFIG.supabase.table) || 'rider_applications';
+    const ADMIN_ALLOWED_EMAILS = Array.isArray(APP_CONFIG.admin && APP_CONFIG.admin.allowedEmails)
+      ? APP_CONFIG.admin.allowedEmails.map((email) => String(email).trim().toLowerCase()).filter(Boolean)
+      : [];
+    const LOCAL_DEV_BYPASS = Boolean(APP_CONFIG.admin && APP_CONFIG.admin.localDevBypass) &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const LOCAL_DEV_LABEL = APP_CONFIG.admin && typeof APP_CONFIG.admin.localDevLabel === 'string' && APP_CONFIG.admin.localDevLabel.trim()
+      ? APP_CONFIG.admin.localDevLabel.trim()
+      : 'Local Dev Bypass';
+    const SUPABASE_URL = APP_CONFIG.supabase && typeof APP_CONFIG.supabase.url === 'string' && APP_CONFIG.supabase.url.trim() && !APP_CONFIG.supabase.url.includes(SUPABASE_URL_PLACEHOLDER)
+      ? APP_CONFIG.supabase.url.trim()
+      : '';
+    const SUPABASE_ANON_KEY = APP_CONFIG.supabase && typeof APP_CONFIG.supabase.anonKey === 'string' && APP_CONFIG.supabase.anonKey.trim() && !APP_CONFIG.supabase.anonKey.includes(SUPABASE_KEY_PLACEHOLDER)
+      ? APP_CONFIG.supabase.anonKey.trim()
+      : '';
+    const NOTIFICATION_FUNCTION_URL = APP_CONFIG.notifications && typeof APP_CONFIG.notifications.functionUrl === 'string' && APP_CONFIG.notifications.functionUrl.trim()
+      ? APP_CONFIG.notifications.functionUrl.trim()
+      : (SUPABASE_URL ? SUPABASE_URL + '/functions/v1/notify-signup' : '');
+    const supabaseClient = window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
+      : null;
+    let submissions = [];
+    let areaChart;
+    let platformChart;
+    let bikeChart;
+    let realtimeChannel;
+    let currentFilteredSubmissions = [];
+    let authReady = false;
+
+    const AREA_LABELS = {
+      'Johannesburg CBD': 'Johannesburg',
+      'Sandton / Rosebank': 'Johannesburg',
+      'Soweto': 'Johannesburg',
+      'Randburg / Roodepoort': 'West Rand',
+      'East Rand (Boksburg / Germiston)': 'East Rand',
+      'South Johannesburg': 'Johannesburg',
+      'Pretoria CBD': 'Pretoria',
+      'Centurion': 'Pretoria',
+      'Pretoria East (Menlyn / Faerie Glen)': 'Pretoria',
+      'Pretoria North / West': 'Pretoria',
+      'Midrand': 'Midrand',
+      'Vaal / Vanderbijlpark': 'Vaal',
+      'Krugersdorp / Mogale City': 'West Rand',
+      'Other Gauteng': 'Other Gauteng'
+    };
+
+    function normalizeSubmission(record) {
+      return {
+        id: record.id,
+        name: record.full_name || record.name,
+        phone: record.phone,
+        email: record.email,
+        idNumber: record.id_number || record.idNumber,
+        platform: record.platform,
+        bikeType: record.bike_type || record.bikeType,
+        bikeAge: record.bike_age || record.bikeAge,
+        condition: record.condition,
+        routes: record.routes,
+        area: record.area,
+        hours: record.hours,
+        qualityScore: Number(record.quality_score || record.qualityScore || 0),
+        scoreTag: record.score_tag || record.scoreTag || '',
+        status: record.status || 'Pending',
+        timestamp: record.created_at || record.timestamp || new Date().toISOString(),
+        verifiedPhone: Boolean(record.verified_phone || record.verifiedPhone),
+        verifiedAt: record.verified_at || record.verifiedAt || '',
+        activityZone: record.activity_zone || record.activityZone || (AREA_LABELS[record.area] || AREA_LABELS[record.area || record.area] || 'Other Gauteng'),
+        trafficPotential: record.traffic_potential || record.trafficPotential || 'Low',
+        minimumStandardPassed: typeof record.minimum_standard_passed === 'boolean' ? record.minimum_standard_passed : Boolean(record.minimumStandardPassed),
+        minimumStandardReason: record.minimum_standard_reason || record.minimumStandardReason || '',
+        bikePhotoName: record.bike_photo_name || record.bikePhotoName || '',
+        riderPhotoName: record.rider_photo_name || record.riderPhotoName || '',
+        bikePhotoPreview: record.bike_photo_url || record.bike_photo_preview || record.bikePhotoPreview || '',
+        riderPhotoPreview: record.rider_photo_url || record.rider_photo_preview || record.riderPhotoPreview || ''
+      };
+    }
+
+    function loadSubmissions() {
+      try {
+        const raw = localStorage.getItem(SUBMISSIONS_KEY);
+        return raw ? JSON.parse(raw).map((record) => normalizeSubmission(record)) : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveSubmissions() {
+      try {
+        localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(submissions));
+      } catch (error) {
+      }
+    }
+
+    function initCharts() {
+      Chart.defaults.color = 'rgba(255,255,255,0.4)';
+      Chart.defaults.font.family = "'Inter', sans-serif";
+      Chart.defaults.font.size = 11;
+
+      areaChart = new Chart(document.getElementById('areaChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Signups',
+            data: [],
+            backgroundColor: 'rgba(0,230,118,0.25)',
+            borderColor: '#00E676',
+            borderWidth: 1.5,
+            borderRadius: 3,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ' ' + ctx.raw + ' signup' + (ctx.raw !== 1 ? 's' : '')
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { maxRotation: 0, autoSkip: false } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true }
+          }
+        }
+      });
+
+      platformChart = new Chart(document.getElementById('platformChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: ['#00E676', '#FFC107', '#448AFF', '#FF5252', '#26C6DA'],
+            borderColor: '#161616',
+            borderWidth: 3,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 14 } } },
+          cutout: '65%'
+        }
+      });
+
+      bikeChart = new Chart(document.getElementById('bikeChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: ['#00E676', '#448AFF', '#FFC107', '#FF5252'],
+            borderColor: '#161616',
+            borderWidth: 3,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 14 } } },
+          cutout: '65%'
+        }
+      });
+    }
+
+    function groupAreas() {
+      const counts = {};
+      submissions.forEach((submission) => {
+        const label = AREA_LABELS[submission.area] || 'Other Gauteng';
+        counts[label] = (counts[label] || 0) + 1;
+      });
+      return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    }
+
+    function updateAreaChart() {
+      const grouped = groupAreas();
+      if (!grouped.length) {
+        areaChart.data.labels = ['No data yet'];
+        areaChart.data.datasets[0].data = [0];
+      } else {
+        areaChart.data.labels = grouped.map(([label]) => label);
+        areaChart.data.datasets[0].data = grouped.map(([, count]) => count);
+      }
+      areaChart.update();
+      updateAreaMap(grouped);
+    }
+
+    function updateAreaMap(grouped) {
+      const counts = Object.fromEntries(grouped);
+      const mapIds = {
+        Johannesburg: 'map-johannesburg',
+        Pretoria: 'map-pretoria',
+        Midrand: 'map-midrand',
+        'East Rand': 'map-east-rand',
+        'West Rand': 'map-west-rand',
+        Vaal: 'map-vaal',
+        'Other Gauteng': 'map-other-gauteng'
+      };
+
+      Object.entries(mapIds).forEach(([region, id]) => {
+        const value = counts[region] || 0;
+        document.getElementById(id).textContent = value;
+        const card = document.querySelector('[data-region="' + region + '"]');
+        if (card) {
+          card.classList.toggle('active', value > 0);
+        }
+      });
+    }
+
+    function updateDistCharts() {
+      const platformCounts = {};
+      const bikeCounts = {};
+      submissions.forEach((submission) => {
+        platformCounts[submission.platform || 'Unknown'] = (platformCounts[submission.platform || 'Unknown'] || 0) + 1;
+        bikeCounts[submission.bikeType || 'Unknown'] = (bikeCounts[submission.bikeType || 'Unknown'] || 0) + 1;
+      });
+
+      platformChart.data.labels = Object.keys(platformCounts);
+      platformChart.data.datasets[0].data = Object.values(platformCounts);
+      platformChart.update();
+
+      bikeChart.data.labels = Object.keys(bikeCounts);
+      bikeChart.data.datasets[0].data = Object.values(bikeCounts);
+      bikeChart.update();
+    }
+
+    function animateNum(id, target) {
+      const el = document.getElementById(id);
+      const start = parseInt(el.textContent, 10) || 0;
+      if (start === target) {
+        return;
+      }
+      const step = Math.ceil(Math.abs(target - start) / 12);
+      let current = start;
+      const go = () => {
+        current = current < target ? Math.min(current + step, target) : Math.max(current - step, target);
+        el.textContent = current;
+        if (current !== target) {
+          requestAnimationFrame(go);
+        }
+      };
+      requestAnimationFrame(go);
+    }
+
+    function updateStats() {
+      const total = submissions.length;
+      const pending = submissions.filter((submission) => submission.status === 'Pending').length;
+      const approved = submissions.filter((submission) => submission.status === 'Approved').length;
+      const rejected = submissions.filter((submission) => submission.status === 'Rejected').length;
+      const highValue = submissions.filter((submission) => Number(submission.qualityScore) >= 8).length;
+
+      animateNum('s-total', total);
+      animateNum('s-pending', pending);
+      animateNum('s-approved', approved);
+      animateNum('s-hv', highValue);
+
+      const max = Math.max(total, 1);
+      document.getElementById('pb-pending').style.width = (pending / max * 100) + '%';
+      document.getElementById('pb-approved').style.width = (approved / max * 100) + '%';
+      document.getElementById('pb-rejected').style.width = (rejected / max * 100) + '%';
+      document.getElementById('pc-pending').textContent = pending;
+      document.getElementById('pc-approved').textContent = approved;
+      document.getElementById('pc-rejected').textContent = rejected;
+    }
+
+    function timeAgo(iso) {
+      const diff = (Date.now() - new Date(iso)) / 1000;
+      if (diff < 60) {
+        return 'Just now';
+      }
+      if (diff < 3600) {
+        return Math.floor(diff / 60) + 'm ago';
+      }
+      if (diff < 86400) {
+        return Math.floor(diff / 3600) + 'h ago';
+      }
+      return Math.floor(diff / 86400) + 'd ago';
+    }
+
+    function buildNotifications() {
+      const list = document.getElementById('notif-list');
+      const recent = [...submissions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 8);
+      if (!recent.length) {
+        list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+        return;
+      }
+      list.innerHTML = recent.map((submission) => {
+        const isHighValue = Number(submission.qualityScore) >= 8;
+        const isCompleted = submission.status === 'Approved';
+        const type = isCompleted ? 'done' : isHighValue ? 'hv' : 'new';
+        const msg = isCompleted
+          ? '<strong>' + submission.name + '</strong> completed review and is approved for installation.'
+          : isHighValue
+          ? '<strong>' + submission.name + '</strong> - high-value applicant (Score ' + submission.qualityScore + '/11). ' + (submission.area || 'Unknown area')
+          : '<strong>' + submission.name + '</strong> submitted from ' + (submission.area || 'Unknown area') + '.';
+        const icon = isCompleted
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'
+          : isHighValue
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
+        return '<div class="notif"><div class="notif-icon ni-' + type + '">' + icon + '</div><div class="notif-body"><div class="notif-msg">' + msg + '</div><div class="notif-time">' + timeAgo(submission.timestamp) + '</div></div></div>';
+      }).join('');
+    }
+
+    function isAllowedAdmin(email) {
+      const normalized = String(email || '').trim().toLowerCase();
+      return !!normalized && (!ADMIN_ALLOWED_EMAILS.length || ADMIN_ALLOWED_EMAILS.includes(normalized));
+    }
+
+    function setAuthStatus(message, tone) {
+      const status = document.getElementById('auth-status');
+      status.textContent = message || '';
+      status.className = 'auth-status' + (tone ? ' ' + tone : '');
+    }
+
+    function toggleDashboardAccess(isAuthed, email) {
+      document.getElementById('dashboard-shell').hidden = !isAuthed;
+      document.getElementById('auth-shell').classList.toggle('hidden', isAuthed);
+      document.body.classList.toggle('auth-locked', !isAuthed);
+      document.getElementById('admin-email').textContent = isAuthed ? email : 'Signed out';
+    }
+
+    async function notifyEvent(eventType, submission) {
+      if (!NOTIFICATION_FUNCTION_URL) {
+        return;
+      }
+
+      try {
+        await fetch(NOTIFICATION_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: 'Bearer ' + SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ submission, eventTypes: [eventType] })
+        });
+      } catch (error) {
+      }
+    }
+
+    async function ensureAuthorizedSession() {
+      if (LOCAL_DEV_BYPASS) {
+        toggleDashboardAccess(true, LOCAL_DEV_LABEL);
+        setAuthStatus('Local development bypass is enabled on localhost only.', 'ok');
+        return true;
+      }
+
+      if (!supabaseClient) {
+        toggleDashboardAccess(false, 'Signed out');
+        setAuthStatus('Supabase credentials are required for protected admin access.', 'err');
+        return false;
+      }
+
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) {
+        toggleDashboardAccess(false, 'Signed out');
+        setAuthStatus('Unable to read the current admin session.', 'err');
+        return false;
+      }
+
+      const session = data && data.session;
+      if (!session || !isAllowedAdmin(session.user && session.user.email)) {
+        if (session) {
+          await supabaseClient.auth.signOut();
+        }
+        toggleDashboardAccess(false, 'Signed out');
+        setAuthStatus('Sign in with an approved admin account.', '');
+        return false;
+      }
+
+      toggleDashboardAccess(true, session.user.email);
+      setAuthStatus('');
+      return true;
+    }
+
+    function populateAreaFilter() {
+      const sel = document.getElementById('filter-area');
+      const currentValue = sel.value;
+      const used = [...new Set(submissions.map((submission) => submission.area).filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">All Areas</option>' + used.map((area) => '<option>' + area + '</option>').join('');
+      sel.value = used.includes(currentValue) ? currentValue : '';
+    }
+
+    function populateSelectOptions(selectId, values, defaultLabel) {
+      const sel = document.getElementById(selectId);
+      const currentValue = sel.value;
+      const used = [...new Set(values.filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">' + defaultLabel + '</option>' + used.map((value) => '<option>' + value + '</option>').join('');
+      sel.value = used.includes(currentValue) ? currentValue : '';
+    }
+
+    function populateDerivedFilters() {
+      populateSelectOptions('filter-bike-type', submissions.map((submission) => submission.bikeType), 'All Bike Types');
+      populateSelectOptions('filter-activity-zone', submissions.map((submission) => submission.activityZone), 'All Activity Zones');
+    }
+
+    function renderTable() {
+      const fArea = document.getElementById('filter-area').value;
+      const fPlatform = document.getElementById('filter-platform').value;
+      const fBikeType = document.getElementById('filter-bike-type').value;
+      const fActivityZone = document.getElementById('filter-activity-zone').value;
+      const fStatus = document.getElementById('filter-status').value;
+      const q = document.getElementById('filter-search').value.trim().toLowerCase();
+
+      const filtered = submissions.filter((submission) => {
+        return (!fArea || submission.area === fArea) &&
+          (!fPlatform || submission.platform === fPlatform) &&
+          (!fBikeType || submission.bikeType === fBikeType) &&
+          (!fActivityZone || submission.activityZone === fActivityZone) &&
+          (!fStatus || submission.status === fStatus) &&
+          (!q || [submission.name, submission.phone, submission.area, submission.activityZone, submission.platform, submission.bikeType, submission.email, submission.trafficPotential, submission.scoreTag]
+            .filter(Boolean)
+            .some((value) => value.toLowerCase().includes(q)));
+      }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      currentFilteredSubmissions = filtered;
+
+      document.getElementById('tbl-count').textContent = filtered.length + ' applicant' + (filtered.length !== 1 ? 's' : '');
+
+      if (!filtered.length) {
+        document.getElementById('tbl-body').innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--dim)">No applicants match the current filters</td></tr>';
+        return;
+      }
+
+      document.getElementById('tbl-body').innerHTML = filtered.map((submission) => {
+        const score = Number(submission.qualityScore) || 0;
+        const level = score >= 8 ? 'on' : score >= 5 ? 'mid' : 'low';
+        const dots = Array.from({ length: 5 }, (_, i) => '<div class="s-dot' + (i < Math.ceil(score / 11 * 5) ? ' ' + level : '') + '"></div>').join('');
+        const pill = '<span class="status-pill ' + submission.status.toLowerCase() + '">' + submission.status + '</span>';
+        const hvTag = score >= 8 ? '<span class="high-val" title="High-value applicant">HV</span>' : '';
+        const scoreTagTone = score >= 8 ? 'high' : score >= 5 ? 'medium' : 'low';
+        const scoreTag = '<span class="score-tag ' + scoreTagTone + '">' + (submission.scoreTag || 'Standard review') + '</span>';
+        const standardTag = submission.minimumStandardPassed
+          ? '<span class="standard-pill pass">Pass</span>'
+          : '<span class="standard-pill fail" title="' + (submission.minimumStandardReason || 'Minimum standard not met') + '">Fail</span>';
+        const waLink = 'https://wa.me/' + submission.phone.replace(/\D/g, '').replace(/^0/, '27');
+        const wa = '<a href="' + waLink + '" target="_blank" rel="noopener"><button type="button" class="act-btn wa">WA</button></a>';
+        const photos = '<button type="button" class="act-btn" onclick="openPhotoModal(\'' + submission.id + '\')">Photos</button>';
+        const actions = submission.status === 'Pending'
+          ? photos + wa + '<button type="button" class="act-btn approve" onclick="setStatus(\'' + submission.id + '\',\'Approved\')">Approve</button><button type="button" class="act-btn reject" onclick="setStatus(\'' + submission.id + '\',\'Rejected\')">Reject</button>'
+          : photos + wa + '<button type="button" class="act-btn approve" onclick="setStatus(\'' + submission.id + '\',\'Pending\')">Reset</button>';
+        return '<tr><td>' + submission.name + ' ' + hvTag + '</td><td>' + submission.phone + '</td><td>' + (submission.area || '—') + '</td><td>' + (submission.activityZone || '—') + '</td><td>' + (submission.platform || '—') + '</td><td>' + (submission.bikeType ? submission.bikeType.split('(')[0].trim() : '—') + '</td><td><div>' + (submission.trafficPotential || 'Low') + '</div>' + scoreTag + '</td><td><div class="score-bar"><div class="score-dots">' + dots + '</div>' + score + '/11</div></td><td>' + standardTag + '</td><td>' + pill + '</td><td><div class="tbl-actions">' + actions + '</div></td></tr>';
+      }).join('');
+    }
+
+    function exportRows(rows, filename) {
+      if (!rows.length) {
+        return;
+      }
+      const headers = ['Name', 'Phone', 'Email', 'Area', 'Activity Zone', 'Traffic Potential', 'Score Tag', 'Platform', 'Bike Type', 'Bike Age', 'Condition', 'Hours', 'Quality Score', 'Minimum Standard Passed', 'Minimum Standard Reason', 'Status', 'Routes', 'Submitted At', 'Bike Photo Name', 'Rider Photo Name'];
+      const escapeCell = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+      const lines = [headers.join(',')].concat(rows.map((row) => [
+        row.name,
+        row.phone,
+        row.email,
+        row.area,
+        row.activityZone,
+        row.trafficPotential,
+        row.scoreTag,
+        row.platform,
+        row.bikeType,
+        row.bikeAge,
+        row.condition,
+        row.hours,
+        row.qualityScore,
+        row.minimumStandardPassed,
+        row.minimumStandardReason,
+        row.status,
+        row.routes,
+        row.timestamp,
+        row.bikePhotoName,
+        row.riderPhotoName
+      ].map(escapeCell).join(',')));
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function setPhotoFrame(frameId, metaId, preview, name, fallbackText) {
+      const frame = document.getElementById(frameId);
+      const meta = document.getElementById(metaId);
+      if (preview) {
+        frame.innerHTML = '<img src="' + preview + '" alt="' + fallbackText + '" />';
+      } else {
+        frame.textContent = fallbackText;
+      }
+      meta.textContent = name ? 'Saved filename: ' + name : 'No file metadata stored yet.';
+    }
+
+    function openPhotoModal(id) {
+      const submission = submissions.find((item) => String(item.id) === String(id));
+      if (!submission) {
+        return;
+      }
+      document.getElementById('photo-title').textContent = submission.name + ' Photo Review';
+      document.getElementById('photo-sub').textContent = submission.area + ' | ' + submission.platform + ' | ' + submission.status;
+      setPhotoFrame('bike-photo-frame', 'bike-photo-meta', submission.bikePhotoPreview, submission.bikePhotoName, 'Bike photo is not available in this environment');
+      setPhotoFrame('rider-photo-frame', 'rider-photo-meta', submission.riderPhotoPreview, submission.riderPhotoName, 'Rider photo was not uploaded or is not available');
+      document.getElementById('photo-modal').classList.add('open');
+      document.getElementById('photo-modal').setAttribute('aria-hidden', 'false');
+    }
+
+    function closePhotoModal() {
+      document.getElementById('photo-modal').classList.remove('open');
+      document.getElementById('photo-modal').setAttribute('aria-hidden', 'true');
+    }
+
+    async function setStatus(id, status) {
+      const submission = submissions.find((item) => item.id === id);
+      if (!submission) {
+        return;
+      }
+
+      submission.status = status;
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient
+          .from(REMOTE_TABLE)
+          .update({ status })
+          .eq('id', id);
+
+        if (error) {
+          return;
+        }
+      }
+
+      saveSubmissions();
+      if (channel) {
+        channel.postMessage({ type: 'submission-status', payload: { id, status } });
+      }
+      if (status === 'Approved') {
+        await notifyEvent('application_completed', submission);
+      }
+      await loadDashboard();
+    }
+
+    function updateSyncNote() {
+      const note = document.getElementById('sync-note');
+      if (supabaseClient) {
+        if (!submissions.length) {
+          note.textContent = 'Supabase live sync active - waiting for submissions';
+          return;
+        }
+        const latestRemote = [...submissions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+        note.textContent = 'Supabase live sync active - last signup: ' + latestRemote.name + ' - ' + timeAgo(latestRemote.timestamp);
+        return;
+      }
+      if (!submissions.length) {
+        note.textContent = 'Local browser mode only - add Supabase values in config.js for shared live sync';
+        return;
+      }
+      const latest = [...submissions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+      note.textContent = 'Local browser mode - last signup: ' + latest.name + ' - ' + timeAgo(latest.timestamp);
+    }
+
+    async function fetchRemoteSubmissions() {
+      if (!supabaseClient) {
+        return null;
+      }
+
+      const { data, error } = await supabaseClient
+        .from(REMOTE_TABLE)
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return null;
+      }
+
+      return data.map((record) => normalizeSubmission(record));
+    }
+
+    async function loadDashboard() {
+      const remoteSubmissions = await fetchRemoteSubmissions();
+      submissions = remoteSubmissions || loadSubmissions();
+      saveSubmissions();
+      updateStats();
+      updateAreaChart();
+      updateDistCharts();
+      buildNotifications();
+      populateAreaFilter();
+      populateDerivedFilters();
+      renderTable();
+      updateSyncNote();
+    }
+
+    function subscribeToRealtime() {
+      if (!supabaseClient || realtimeChannel) {
+        return;
+      }
+
+      realtimeChannel = supabaseClient
+        .channel('gubudo-rider-applications')
+        .on('postgres_changes', { event: '*', schema: 'public', table: REMOTE_TABLE }, async () => {
+          await loadDashboard();
+        })
+        .subscribe();
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+
+      if (LOCAL_DEV_BYPASS) {
+        toggleDashboardAccess(true, LOCAL_DEV_LABEL);
+        setAuthStatus('Local development bypass is enabled on localhost only.', 'ok');
+        await loadDashboard();
+        return;
+      }
+
+      if (!supabaseClient) {
+        setAuthStatus('Supabase credentials are required before admins can sign in.', 'err');
+        return;
+      }
+
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+
+      if (!email || !password) {
+        setAuthStatus('Enter both email and password.', 'err');
+        return;
+      }
+
+      setAuthStatus('Signing in...', '');
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
+
+      if (error) {
+        setAuthStatus(error.message || 'Unable to sign in.', 'err');
+        return;
+      }
+
+      const signedInEmail = data && data.user && data.user.email;
+      if (!isAllowedAdmin(signedInEmail)) {
+        await supabaseClient.auth.signOut();
+        setAuthStatus('This account is not on the approved admin list.', 'err');
+        return;
+      }
+
+      toggleDashboardAccess(true, signedInEmail);
+      setAuthStatus('Dashboard unlocked.', 'ok');
+      subscribeToRealtime();
+      await loadDashboard();
+    }
+
+    async function handleLogout() {
+      if (LOCAL_DEV_BYPASS) {
+        toggleDashboardAccess(false, 'Signed out');
+        setAuthStatus('Local development bypass disabled for this session. Reload to re-enter.', 'ok');
+        return;
+      }
+
+      if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+      }
+      toggleDashboardAccess(false, 'Signed out');
+      setAuthStatus('Signed out.', 'ok');
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    window.addEventListener('storage', (event) => {
+      if (event.key === SUBMISSIONS_KEY) {
+        loadDashboard();
+      }
+    });
+
+    if (channel) {
+      channel.addEventListener('message', async () => {
+        await loadDashboard();
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      initCharts();
+      document.getElementById('auth-form').addEventListener('submit', handleLogin);
+      document.getElementById('logout-btn').addEventListener('click', handleLogout);
+      document.getElementById('menu-btn').addEventListener('click', toggleSidebar);
+      document.getElementById('overlay').addEventListener('click', closeSidebar);
+      document.getElementById('refresh-btn').addEventListener('click', async () => {
+        await loadDashboard();
+      });
+      document.getElementById('export-btn').addEventListener('click', () => {
+        exportRows(submissions, 'gubudo-applicants-all.csv');
+      });
+      document.getElementById('export-filtered-btn').addEventListener('click', () => {
+        exportRows(currentFilteredSubmissions, 'gubudo-applicants-filtered.csv');
+      });
+      document.getElementById('filter-area').addEventListener('change', renderTable);
+      document.getElementById('filter-platform').addEventListener('change', renderTable);
+      document.getElementById('filter-bike-type').addEventListener('change', renderTable);
+      document.getElementById('filter-activity-zone').addEventListener('change', renderTable);
+      document.getElementById('filter-status').addEventListener('change', renderTable);
+      document.getElementById('filter-search').addEventListener('input', renderTable);
+      document.getElementById('photo-close').addEventListener('click', closePhotoModal);
+      document.getElementById('photo-modal').addEventListener('click', (event) => {
+        if (event.target.id === 'photo-modal') {
+          closePhotoModal();
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePhotoModal();
+        }
+      });
+
+      authReady = await ensureAuthorizedSession();
+      if (authReady) {
+        subscribeToRealtime();
+        await loadDashboard();
+      }
+
+      if (supabaseClient) {
+        supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+          if (session && isAllowedAdmin(session.user && session.user.email)) {
+            toggleDashboardAccess(true, session.user.email);
+            subscribeToRealtime();
+            await loadDashboard();
+            return;
+          }
+          toggleDashboardAccess(false, 'Signed out');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
