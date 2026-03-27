@@ -15,10 +15,10 @@ Landing page and admin dashboard for converting delivery riders into GUBUDO OOH 
 
 1. Run `npm install`.
 2. Edit `config.js` and add your real Typeform form ID.
-3. Create a Supabase project, enable Phone Auth for OTP, and create a public storage bucket for rider photos.
+3. Create a Supabase project, enable Phone Auth for OTP, connect Twilio Verify inside Supabase Auth, and create a public storage bucket for rider photos.
 4. Run `supabase/schema.sql` in the Supabase SQL editor.
 5. Create at least one admin user in Supabase Auth and add that email to `config.js` under `admin.allowedEmails`.
-6. Deploy the `notify-signup` Edge Function and configure its provider secrets if you want outbound alerts.
+6. Deploy the `notify-signup`, `typeform-webhook`, and `sync-photo-uploads` Edge Functions and configure their provider secrets if you want outbound alerts and the Typeform-plus-upload flow to sync fully into Supabase.
 7. For dedicated SMS or WhatsApp alerts, add Twilio secrets and sender/recipient values to the function environment.
 8. Copy your Supabase project URL, anon key, and storage bucket name into `config.js`.
 9. Start the React frontend with `npm run dev`.
@@ -30,7 +30,33 @@ For local development only, `config.js` includes `admin.localDevBypass`. When it
 
 ## Important Note
 
-The public website now runs in React while preserving the established color system and layout. The landing page verifies rider phone numbers with OTP before opening Typeform, enforces a minimum bike standard before submission, stores bike images in Supabase Storage, and syncs the admin dashboard through Supabase.
+The public website now runs in React while preserving the established color system and layout. The landing page now requires SMS OTP verification before the Typeform application opens, then shows a short upload-only step for bike photos. Those uploads are saved to Supabase and can be linked to the Typeform submission by response ID.
+
+## OTP Setup
+
+1. In Supabase, open Authentication > Providers > Phone.
+2. Choose Twilio Verify as the SMS provider and add the Twilio Account SID, Auth Token, Verify Service SID, and sender configuration.
+3. Keep `otp.enabled` set to `true` in `config.js` so the website enforces phone verification before opening Typeform.
+4. Test one full cycle locally: request OTP, verify the code, submit Typeform, then confirm the resulting `rider_applications` row has `verified_phone = true` and `verified_at` populated.
+
+For the edge functions in this repo, set these custom secrets before deploying:
+
+`npx supabase@latest secrets set PROJECT_URL=https://telwshdnaaofhrsifjnk.supabase.co SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY`
+
+## Email Notes
+
+Disable Typeform email notifications if you do not want Typeform-generated response emails. The included `notify-signup` Edge Function is intended to handle the real operational email flow by sending the admin copy to the GUBUDO inbox and a confirmation email to the applicant.
+
+## Typeform Upload Flow
+
+The intended production flow is:
+
+1. User opens the Typeform application from the website.
+2. The website passes the verified phone metadata into Typeform hidden fields.
+3. After Typeform submission, the website collects only the required bike photos.
+4. The website stores those uploads in `application_photo_uploads` using the Typeform response ID.
+5. The `typeform-webhook` function writes the main application into `rider_applications` and marks the phone as verified when the hidden OTP values are present.
+6. The `sync-photo-uploads` function links the queued uploads into the matching `rider_applications` row.
 
 ## Security Note
 

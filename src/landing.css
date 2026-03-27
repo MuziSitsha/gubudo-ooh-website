@@ -1198,6 +1198,23 @@ body::before {
 
 .otp-input-row input {
   flex: 1;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--r);
+  padding: 0.75rem 0.9rem;
+  color: var(--white);
+  font-size: 0.88rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.otp-input-row input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.otp-input-row input:focus {
+  outline: none;
+  border-color: var(--green);
+  background: rgba(0, 230, 118, 0.035);
 }
 
 .otp-btn,

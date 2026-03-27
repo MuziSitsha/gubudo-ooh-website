@@ -1,23 +1,23 @@
 window.GUBUDO_CONFIG = {
   typeform: {
-    formId: 'REPLACE_WITH_YOUR_TYPEFORM_ID',
+    formId: 'BS8UC0Rv',
     region: 'us'
   },
   supabase: {
-    url: 'https://YOUR_PROJECT_REF.supabase.co',
-    anonKey: 'REPLACE_WITH_YOUR_SUPABASE_ANON_KEY',
+    url: 'https://telwshdnaaofhrsifjnk.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlbHdzaGRuYWFvZmhyc2lmam5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MDM0ODIsImV4cCI6MjA5MDA3OTQ4Mn0.FfbmR88h1omeEvBPo4lGs0Yj-U7tXP1ztiEyg5GU4Vc',
     table: 'rider_applications',
-    storageBucket: 'REPLACE_WITH_YOUR_STORAGE_BUCKET'
+    storageBucket: 'Rider Photos'
   },
   storage: {
-    bucket: 'REPLACE_WITH_YOUR_STORAGE_BUCKET'
+    bucket: 'Rider Photos'
   },
   otp: {
     enabled: true
   },
   admin: {
-    allowedEmails: ['admin@gubudo.co.za'],
-    localDevBypass: true,
+    allowedEmails: ['sales@gubudo.com'],
+    localDevBypass: false,
     localDevLabel: 'Local Dev Bypass'
   },
   notifications: {

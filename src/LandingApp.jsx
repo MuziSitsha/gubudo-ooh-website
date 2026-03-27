@@ -72,18 +72,20 @@ const PERKS = [
 ];
 
 const AREA_OPTIONS = [
-  {
-    label: 'Johannesburg',
-    values: ['Johannesburg CBD', 'Sandton / Rosebank', 'Soweto', 'Randburg / Roodepoort', 'East Rand (Boksburg / Germiston)', 'South Johannesburg']
-  },
-  {
-    label: 'Pretoria',
-    values: ['Pretoria CBD', 'Centurion', 'Pretoria East (Menlyn / Faerie Glen)', 'Pretoria North / West', 'Midrand']
-  },
-  {
-    label: 'Other Gauteng',
-    values: ['Vaal / Vanderbijlpark', 'Krugersdorp / Mogale City', 'Other Gauteng']
-  }
+  'Johannesburg CBD',
+  'Sandton / Rosebank',
+  'Soweto',
+  'Randburg / Roodepoort',
+  'East Rand (Boksburg / Germiston)',
+  'South Johannesburg',
+  'Pretoria CBD',
+  'Centurion',
+  'Pretoria East (Menlyn / Faerie Glen)',
+  'Pretoria North / West',
+  'Midrand',
+  'Vaal / Vanderbijlpark',
+  'Krugersdorp / Mogale City',
+  'Other Gauteng'
 ];
 
 const HOURS_OPTIONS = [
@@ -382,12 +384,20 @@ async function saveSubmissionRecord(values, bikePhoto, riderPhoto, responseId, v
   const trafficPotential = getTrafficPotential(values);
   const activityZone = getActivityZone(values.area);
   const minimumStandard = evaluateMinimumStandard(values);
-  const [bikeUpload, riderUpload, bikePreview, riderPreview] = await Promise.all([
-    uploadPhoto(bikePhoto, submissionId, 'bike'),
-    uploadPhoto(riderPhoto, submissionId, 'rider'),
+  const [bikePreview, riderPreview] = await Promise.all([
     readFilePreview(bikePhoto),
     readFilePreview(riderPhoto)
   ]);
+  let bikeUpload = { name: bikePhoto?.name || '', path: '', url: '' };
+  let riderUpload = { name: riderPhoto?.name || '', path: '', url: '' };
+
+  try {
+    [bikeUpload, riderUpload] = await Promise.all([
+      uploadPhoto(bikePhoto, submissionId, 'bike'),
+      uploadPhoto(riderPhoto, submissionId, 'rider')
+    ]);
+  } catch (error) {
+  }
 
   const submission = {
     id: submissionId,
@@ -419,7 +429,7 @@ async function saveSubmissionRecord(values, bikePhoto, riderPhoto, responseId, v
     verifiedPhone: verification.verified,
     verifiedAt: verification.verifiedAt || '',
     typeformResponseId: responseId,
-    source: 'react-typeform'
+    source: 'website'
   };
 
   upsertLocalSubmission(submission);
@@ -458,7 +468,7 @@ async function saveSubmissionRecord(values, bikePhoto, riderPhoto, responseId, v
       source: submission.source
     };
 
-    const { error } = await supabaseClient.from(publicConfig.table).upsert(payload);
+    const { error } = await supabaseClient.from(publicConfig.table).insert(payload);
     if (error) {
       throw error;
     }
@@ -471,6 +481,77 @@ async function saveSubmissionRecord(values, bikePhoto, riderPhoto, responseId, v
 
   clearDraft();
   return submission;
+}
+
+async function saveUploadOnlyStep({ responseId, bikePhoto, riderPhoto }) {
+  if (!responseId) {
+    throw new Error('Missing Typeform response ID');
+  }
+
+  const [bikePreview, riderPreview] = await Promise.all([
+    readFilePreview(bikePhoto),
+    readFilePreview(riderPhoto)
+  ]);
+
+  let bikeUpload = { name: bikePhoto?.name || '', path: '', url: bikePreview };
+  let riderUpload = { name: riderPhoto?.name || '', path: '', url: riderPreview };
+
+  try {
+    [bikeUpload, riderUpload] = await Promise.all([
+      uploadPhoto(bikePhoto, responseId, 'bike'),
+      uploadPhoto(riderPhoto, responseId, 'rider')
+    ]);
+  } catch (error) {
+  }
+
+  if (!supabaseClient) {
+    throw new Error('Supabase is not configured');
+  }
+
+  const payload = {
+    typeform_response_id: responseId,
+    bike_photo_name: bikeUpload.name || bikePhoto?.name || '',
+    rider_photo_name: riderUpload.name || riderPhoto?.name || '',
+    bike_photo_path: bikeUpload.path || '',
+    rider_photo_path: riderUpload.path || '',
+    bike_photo_url: bikeUpload.url || bikePreview,
+    rider_photo_url: riderUpload.url || riderPreview,
+    status: 'Pending'
+  };
+
+  const { error: insertError } = await supabaseClient.from('application_photo_uploads').insert(payload);
+  if (insertError) {
+    const isDuplicate = String(insertError.message || '').toLowerCase().includes('duplicate') || insertError.code === '23505';
+    if (!isDuplicate) {
+      throw insertError;
+    }
+
+    const { error: updateError } = await supabaseClient
+      .from('application_photo_uploads')
+      .update(payload)
+      .eq('typeform_response_id', responseId);
+
+    if (updateError) {
+      throw updateError;
+    }
+  }
+
+  if (publicConfig.supabaseUrl && publicConfig.supabaseAnonKey) {
+    try {
+      await fetch(`${publicConfig.supabaseUrl}/functions/v1/sync-photo-uploads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: publicConfig.supabaseAnonKey,
+          Authorization: `Bearer ${publicConfig.supabaseAnonKey}`
+        },
+        body: JSON.stringify({ typeformResponseId: responseId })
+      });
+    } catch (error) {
+    }
+  }
+
+  return payload;
 }
 
 function CheckIcon() {
@@ -497,7 +578,12 @@ export default function LandingApp() {
   const [otpVerifiedAt, setOtpVerifiedAt] = useState('');
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpStatus, setOtpStatus] = useState({ message: '', tone: '' });
-  const completedRef = useRef(false);
+  const [typeformResponseId, setTypeformResponseId] = useState('');
+  const [uploadReady, setUploadReady] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState({ message: '', tone: '' });
+  const typeformCompletedRef = useRef(false);
+  const formattedPhone = formatPhoneForOtp(values.phone);
+  const phoneVerified = !publicConfig.otpEnabled || (formattedPhone && otpVerifiedPhone === formattedPhone);
 
   useEffect(() => {
     const onScroll = () => {
@@ -653,7 +739,12 @@ export default function LandingApp() {
     const verifiedAt = new Date().toISOString();
     setOtpVerifiedPhone(otpRequestedPhone);
     setOtpVerifiedAt(verifiedAt);
+    setOtpCode('');
     setOtpStatus({ message: 'Phone number verified successfully.', tone: 'ok' });
+    try {
+      await supabaseClient.auth.signOut();
+    } catch (_error) {
+    }
     setErrors((current) => {
       if (!current.phoneVerification) {
         return current;
@@ -667,101 +758,92 @@ export default function LandingApp() {
   async function openTypeform() {
     if (!publicConfig.typeformFormId) {
       setSubmitting(false);
-      setStatus({ message: 'Add your Typeform form ID in config.js before opening submissions.', tone: 'err' });
+      setStatus({ message: 'Add your Typeform form ID in config.js before opening applications.', tone: 'err' });
       return;
     }
 
-    completedRef.current = false;
-
-  const trafficPotential = getTrafficPotential(values);
-  const minimumStandard = evaluateMinimumStandard(values);
-
-    const hidden = {
-      full_name: values.name,
-      phone: values.phone,
-      email: values.email,
-      id_number: values.idNumber,
-      platform: values.platform,
-      bike_type: values.bikeType,
-      bike_age: values.bikeAge,
-      condition: values.condition,
-      routes: values.routes,
-      area: values.area,
-      activity_zone: getActivityZone(values.area),
-      traffic_potential: trafficPotential,
-      hours: values.hours,
-      quality_score: String(qualityScore),
-      score_tag: getScoreTag(qualityScore),
-      minimum_standard_passed: minimumStandard.passed ? 'true' : 'false',
-      minimum_standard_reason: minimumStandard.reason,
-      verified_phone: otpVerifiedPhone === formatPhoneForOtp(values.phone) ? 'true' : 'false',
-      verified_at: otpVerifiedAt || '',
-      bike_photo_name: bikePhoto?.name || '',
-      rider_photo_name: riderPhoto?.name || '',
-      source: 'react-website'
-    };
+    typeformCompletedRef.current = false;
 
     const popup = createPopup(publicConfig.typeformFormId, {
-      hidden,
       size: 95,
       keepSession: true,
       autoClose: 1200,
       preventReopenOnClose: true,
       region: publicConfig.region,
+      hidden: {
+        verified_phone: publicConfig.otpEnabled && phoneVerified ? (otpVerifiedPhone || formattedPhone || '') : '',
+        verified_at: publicConfig.otpEnabled && phoneVerified ? otpVerifiedAt || '' : '',
+        phone_verified: publicConfig.otpEnabled && phoneVerified ? 'true' : 'false'
+      },
       onClose: () => {
-        if (!completedRef.current) {
-          setSubmitting(false);
-          setStatus({ message: 'Typeform was closed before the application was completed.', tone: 'err' });
+        setSubmitting(false);
+        if (!typeformCompletedRef.current) {
+          setStatus({ message: 'Complete the Typeform application first, then continue below to upload the required images.', tone: 'err' });
         }
       },
-      onSubmit: async ({ responseId }) => {
-        try {
-          completedRef.current = true;
-          setStatus({ message: 'Saving files and applicant record...', tone: '' });
-          await saveSubmissionRecord(values, bikePhoto, riderPhoto, responseId || '', {
-            verified: otpVerifiedPhone === formatPhoneForOtp(values.phone),
-            verifiedAt: otpVerifiedAt
-          });
-          setSubmitting(false);
-          setSuccess(true);
-          setStatus({ message: 'Application saved. Your verified details, photos, and rider profile are now in the review queue.', tone: 'ok' });
-        } catch (error) {
-          setSubmitting(false);
-          setStatus({ message: 'Typeform completed, but saving to Supabase failed. Check config.js and storage setup.', tone: 'err' });
-        }
+      onSubmit: ({ responseId }) => {
+        typeformCompletedRef.current = true;
+        setTypeformResponseId(responseId || '');
+        setUploadReady(true);
+        setSubmitting(false);
+        setStatus({ message: 'Application form completed. Please upload the required photos to finish your review.', tone: 'ok' });
       }
     });
 
     popup.open();
   }
 
-  async function handlePrimaryAction() {
-    setStatus({ message: '', tone: '' });
-    const nextErrors = validateStep(step, values, bikePhoto);
-
-    if (step === 1 && publicConfig.otpEnabled && otpVerifiedPhone !== formatPhoneForOtp(values.phone)) {
-      nextErrors.phoneVerification = 'Verify your phone number to continue';
-    }
-
+  async function handleUploadOnlySubmit() {
+    const nextErrors = validateStep(4, values, bikePhoto);
     setErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) {
-      if (nextErrors.minimumStandard) {
-        setStatus({ message: `Minimum standard not met: ${nextErrors.minimumStandard}.`, tone: 'err' });
-      }
-      if (nextErrors.phoneVerification) {
-        setOtpStatus({ message: 'Verify your phone number before continuing.', tone: 'err' });
-      }
+    if (nextErrors.bikePhoto) {
+      setUploadStatus({ message: nextErrors.bikePhoto, tone: 'err' });
       return;
     }
 
-    if (step < TOTAL_STEPS) {
-      setStep((current) => current + 1);
+    if (!typeformResponseId) {
+      setUploadStatus({ message: 'Complete the Typeform application first.', tone: 'err' });
       return;
     }
 
     setSubmitting(true);
-    setStatus({ message: 'Opening secure Typeform flow...', tone: '' });
+    setUploadStatus({ message: 'Uploading your photos...', tone: '' });
+
+    try {
+      await saveUploadOnlyStep({ responseId: typeformResponseId, bikePhoto, riderPhoto });
+      clearDraft();
+      setSubmitting(false);
+      setSuccess(true);
+      setUploadStatus({ message: 'Photos uploaded successfully. Your application is complete and ready for review.', tone: 'ok' });
+    } catch (error) {
+      setSubmitting(false);
+      setUploadStatus({ message: error instanceof Error ? error.message : 'Photo upload failed. Check Supabase storage and try again.', tone: 'err' });
+    }
+  }
+
+  async function handlePrimaryAction() {
+    setStatus({ message: '', tone: '' });
+
+    if (publicConfig.otpEnabled) {
+      const nextErrors = {};
+
+      if (!/^(\+27)[6-8][0-9]{8}$/.test(formattedPhone)) {
+        nextErrors.phone = 'Enter a valid SA number';
+      }
+
+      if (!phoneVerified) {
+        nextErrors.phoneVerification = 'Verify this phone number before continuing';
+      }
+
+      if (Object.keys(nextErrors).length) {
+        setErrors((current) => ({ ...current, ...nextErrors }));
+        setStatus({ message: 'Verify your phone number before opening the application form.', tone: 'err' });
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    setStatus({ message: 'Opening application form...', tone: '' });
     await openTypeform();
   }
 
@@ -964,276 +1046,66 @@ export default function LandingApp() {
             <div className="form-card fu">
               {!success ? (
                 <>
-                  <div className="prog" id="prog">
-                    <div className="prog-steps">
-                      {[1, 2, 3, 4].map((stepNumber) => (
-                        <div key={stepNumber} className="prog-step">
-                          <div className={`ps-d${stepNumber < step ? ' done' : stepNumber === step ? ' active' : ''}`}>
-                            {stepNumber < step ? <CheckIcon /> : stepNumber}
-                          </div>
-                          {stepNumber < TOTAL_STEPS ? <div className={`ps-l${stepNumber < step ? ' done' : ''}`}></div> : null}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="prog-lbl-row">
-                      {['Personal', 'Your Bike', 'Location', 'Photos'].map((label, index) => (
-                        <span key={label} className={`prog-lbl${index + 1 === step ? ' active' : ''}`}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={`fstep${step === 1 ? ' active' : ''}`}>
-                    <div className="fstep-h">Personal Details</div>
-                    <div className="fstep-s">Phone Number (PRIMARY contact)</div>
-                    <div className="fgrid">
-                      <div className="ff full">
-                        <label htmlFor="i-name">
-                          Full Name <span className="req">*</span>
-                        </label>
-                        <input
-                          id="i-name"
-                          type="text"
-                          className={errors.name ? 'err' : ''}
-                          autoComplete="name"
-                          placeholder="e.g. Sipho Dlamini"
-                          value={values.name}
-                          onChange={(event) => updateValue('name', event.target.value)}
-                        />
-                        <div className="ferr" style={{ display: errors.name ? 'block' : 'none' }}>
-                          {errors.name}
-                        </div>
-                      </div>
+                  <div className="fstep active">
+                    <div className="fstep-h">Verify Your Phone First</div>
+                    <div className="fstep-s">Use your real South African mobile number. Once verified, the Typeform application opens and your verified number is passed through with the submission.</div>
+                    <div className="fgrid one">
                       <div className="ff">
-                        <label htmlFor="i-phone">
-                          Phone Number <span className="req">*</span>
+                        <label>
+                          Mobile Number <span className="req">*</span>
                         </label>
                         <input
-                          id="i-phone"
                           type="tel"
-                          className={errors.phone ? 'err' : ''}
-                          autoComplete="tel"
-                          placeholder="e.g. 082 000 0000"
-                          inputMode="tel"
                           value={values.phone}
                           onChange={(event) => updateValue('phone', event.target.value)}
+                          placeholder="082 123 4567 or +27821234567"
+                          autoComplete="tel"
                         />
                         <div className="ferr" style={{ display: errors.phone ? 'block' : 'none' }}>
                           {errors.phone}
                         </div>
-                        <div className="otp-box">
-                          <div className="otp-actions">
-                            <button type="button" className="otp-btn" disabled={otpBusy} onClick={requestOtp}>
-                              {otpBusy ? 'Sending...' : otpRequestedPhone === formatPhoneForOtp(values.phone) ? 'Resend OTP' : 'Send OTP'}
-                            </button>
-                            <span className={`otp-chip${otpVerifiedPhone === formatPhoneForOtp(values.phone) ? ' ok' : ''}`}>
-                              {otpVerifiedPhone === formatPhoneForOtp(values.phone) ? 'Verified' : 'Verification Required'}
-                            </span>
-                          </div>
-                          <div className="otp-input-row">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              maxLength={6}
-                              placeholder="Enter OTP"
-                              value={otpCode}
-                              onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, ''))}
-                            />
-                            <button type="button" className="otp-btn secondary" disabled={otpBusy} onClick={verifyOtp}>
-                              Verify
-                            </button>
-                          </div>
-                          <div className={`otp-status${otpStatus.tone ? ` ${otpStatus.tone}` : ''}`} aria-live="polite">
-                            {otpStatus.message}
-                          </div>
-                          <div className="ferr" style={{ display: errors.phoneVerification ? 'block' : 'none' }}>
-                            {errors.phoneVerification}
-                          </div>
-                        </div>
                       </div>
-                      <div className="ff">
-                        <label htmlFor="i-email">
-                          Email Address <span className="req">*</span>
-                        </label>
-                        <input
-                          id="i-email"
-                          type="email"
-                          className={errors.email ? 'err' : ''}
-                          autoComplete="email"
-                          placeholder="you@email.com"
-                          inputMode="email"
-                          value={values.email}
-                          onChange={(event) => updateValue('email', event.target.value)}
-                        />
-                        <div className="ferr" style={{ display: errors.email ? 'block' : 'none' }}>
-                          {errors.email}
-                        </div>
+                    </div>
+                    <div className="otp-box">
+                      <div className="otp-actions">
+                        <span className={`otp-chip${phoneVerified ? ' ok' : ''}`}>
+                          {phoneVerified ? 'Phone verified' : 'Verification required'}
+                        </span>
+                        <button type="button" className="otp-btn secondary" disabled={otpBusy} onClick={requestOtp}>
+                          {otpBusy ? 'Sending...' : otpRequestedPhone === formattedPhone && otpRequestedPhone ? 'Resend OTP' : 'Send OTP'}
+                        </button>
                       </div>
-                      <div className="ff full">
-                        <label htmlFor="i-id">
-                          SA ID Number <span className="req">*</span>
-                        </label>
+                      <div className="otp-input-row">
                         <input
-                          id="i-id"
                           type="text"
-                          className={errors.idNumber ? 'err' : ''}
-                          placeholder="13-digit ID number"
-                          maxLength={13}
                           inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={values.idNumber}
-                          onChange={(event) => updateValue('idNumber', event.target.value)}
+                          value={otpCode}
+                          onChange={(event) => setOtpCode(event.target.value.replace(/\D+/g, '').slice(0, 6))}
+                          placeholder="Enter 6-digit OTP"
+                          maxLength={6}
                         />
-                        <div className="ferr" style={{ display: errors.idNumber ? 'block' : 'none' }}>
-                          {errors.idNumber}
-                        </div>
+                        <button type="button" className="otp-btn" disabled={otpBusy || !otpRequestedPhone || otpCode.trim().length < 6} onClick={verifyOtp}>
+                          {otpBusy ? 'Checking...' : 'Verify OTP'}
+                        </button>
                       </div>
+                      <div className={`otp-status${otpStatus.tone ? ` ${otpStatus.tone}` : ''}`} aria-live="polite">
+                        {otpStatus.message || 'This number must match the one you use inside the application form.'}
+                      </div>
+                      <div className="ferr" style={{ display: errors.phoneVerification ? 'block' : 'none' }}>
+                        {errors.phoneVerification}
+                      </div>
+                    </div>
+                    <div className={`form-status${status.tone ? ` ${status.tone}` : ''}`} aria-live="polite">{status.message}</div>
+                    <div className="fnav">
+                      <button type="button" className="btn-submit" disabled={submitting} onClick={handlePrimaryAction}>
+                        {submitting ? 'Opening...' : 'Open Verified Application'}
+                      </button>
                     </div>
                   </div>
 
-                  <div className={`fstep${step === 2 ? ' active' : ''}`}>
-                    <div className="fstep-h">Bike &amp; Work</div>
-                    <div className="fstep-s">Delivery Platform, Type of Bike, Bike Age, Condition, Daily Routes / Areas</div>
-                    <div className="fgrid">
-                      <div className="ff full">
-                        <label htmlFor="i-platform">
-                          Delivery Platform <span className="req">*</span>
-                        </label>
-                        <select id="i-platform" className={errors.platform ? 'err' : ''} value={values.platform} onChange={(event) => updateValue('platform', event.target.value)}>
-                          <option value="">Select your main platform</option>
-                          {PLATFORM_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="ferr" style={{ display: errors.platform ? 'block' : 'none' }}>
-                          {errors.platform}
-                        </div>
-                      </div>
-                      <div className="ff">
-                        <label htmlFor="i-bike-type">
-                          Bike Type <span className="req">*</span>
-                        </label>
-                        <select id="i-bike-type" className={errors.bikeType ? 'err' : ''} value={values.bikeType} onChange={(event) => updateValue('bikeType', event.target.value)}>
-                          <option value="">Select type</option>
-                          {BIKE_TYPE_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="ferr" style={{ display: errors.bikeType ? 'block' : 'none' }}>
-                          {errors.bikeType}
-                        </div>
-                      </div>
-                      <div className="ff">
-                        <label htmlFor="i-bike-age">
-                          Bike Age <span className="req">*</span>
-                        </label>
-                        <select id="i-bike-age" className={errors.bikeAge ? 'err' : ''} value={values.bikeAge} onChange={(event) => updateValue('bikeAge', event.target.value)}>
-                          <option value="">Select age</option>
-                          {BIKE_AGE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="ferr" style={{ display: errors.bikeAge ? 'block' : 'none' }}>
-                          {errors.bikeAge}
-                        </div>
-                      </div>
-                      <div className="ff full">
-                        <label>
-                          Bike Condition <span className="req">*</span>
-                        </label>
-                        <div className="radio-row">
-                          {CONDITION_OPTIONS.map((option) => {
-                            const radioId = `cond-${option.toLowerCase()}`;
-                            return (
-                              <div key={option} className="ropt">
-                                <input
-                                  id={radioId}
-                                  type="radio"
-                                  name="cond"
-                                  value={option}
-                                  checked={values.condition === option}
-                                  onChange={(event) => updateValue('condition', event.target.value)}
-                                />
-                                <label htmlFor={radioId}>{option}</label>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="ferr" style={{ display: errors.condition ? 'block' : 'none' }}>
-                          {errors.condition}
-                        </div>
-                      </div>
-                      <div className="ff full">
-                        <label htmlFor="i-routes">Daily Routes / Areas You Ride</label>
-                        <textarea
-                          id="i-routes"
-                          placeholder="e.g. Sandton CBD, Rosebank, Melrose Arch - ride daily from 8am to 8pm..."
-                          value={values.routes}
-                          onChange={(event) => updateValue('routes', event.target.value)}
-                        ></textarea>
-                        <div className="ferr" style={{ display: errors.routes ? 'block' : 'none' }}>
-                          {errors.routes}
-                        </div>
-                        <div className="ferr" style={{ display: errors.minimumStandard ? 'block' : 'none' }}>
-                          {errors.minimumStandard}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`fstep${step === 3 ? ' active' : ''}`}>
-                    <div className="fstep-h">Location</div>
-                    <div className="fstep-s">Area (Dropdown: Gauteng zones) and Typical working hours</div>
-                    <div className="fgrid one">
-                      <div className="ff">
-                        <label htmlFor="i-area">
-                          Gauteng Area <span className="req">*</span>
-                        </label>
-                        <select id="i-area" className={errors.area ? 'err' : ''} value={values.area} onChange={(event) => updateValue('area', event.target.value)}>
-                          <option value="">Select your zone</option>
-                          {AREA_OPTIONS.map((group) => (
-                            <optgroup key={group.label} label={group.label}>
-                              {group.values.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-                        <div className="ferr" style={{ display: errors.area ? 'block' : 'none' }}>
-                          {errors.area}
-                        </div>
-                      </div>
-                      <div className="ff">
-                        <label htmlFor="i-hours">
-                          Typical Working Hours <span className="req">*</span>
-                        </label>
-                        <select id="i-hours" className={errors.hours ? 'err' : ''} value={values.hours} onChange={(event) => updateValue('hours', event.target.value)}>
-                          <option value="">Select your schedule</option>
-                          {HOURS_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="ferr" style={{ display: errors.hours ? 'block' : 'none' }}>
-                          {errors.hours}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`fstep${step === 4 ? ' active' : ''}`}>
+                  <div className={`fstep${uploadReady ? ' active' : ''}`}>
                     <div className="fstep-h">Uploads</div>
-                    <div className="fstep-s">Photo of bike (REQUIRED). Optional: rider + bike</div>
+                    <div className="fstep-s">Final step after Typeform: upload the required bike photos to complete your review.</div>
                     <div className="fgrid one">
                       <div className="ff">
                         <label>
@@ -1272,19 +1144,14 @@ export default function LandingApp() {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className={`form-status${status.tone ? ` ${status.tone}` : ''}`} aria-live="polite">
-                    {status.message}
-                  </div>
-
-                  <div className="fnav">
-                    <button type="button" className="btn-back" style={{ visibility: step > 1 ? 'visible' : 'hidden' }} onClick={goBack}>
-                      Back
-                    </button>
-                    <button type="button" className={step === TOTAL_STEPS ? 'btn-submit' : 'btn-next'} disabled={submitting} onClick={handlePrimaryAction}>
-                      {submitting ? 'Sending...' : buttonText}
-                    </button>
+                    <div className={`form-status${uploadStatus.tone ? ` ${uploadStatus.tone}` : ''}`} aria-live="polite">
+                      {uploadStatus.message}
+                    </div>
+                    <div className="fnav">
+                      <button type="button" className="btn-submit" disabled={submitting || !uploadReady} onClick={handleUploadOnlySubmit}>
+                        {submitting ? 'Uploading...' : 'Complete Photo Upload'}
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -1301,7 +1168,7 @@ export default function LandingApp() {
                     </p>
                   </div>
                   <div className="form-status ok" aria-live="polite">
-                    {status.message}
+                    {uploadStatus.message || status.message}
                   </div>
                 </>
               )}

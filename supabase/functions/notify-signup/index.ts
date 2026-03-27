@@ -20,6 +20,13 @@ type SubmissionPayload = {
   timestamp?: string;
 };
 
+type EmailPayload = {
+  to: string[];
+  subject: string;
+  text: string;
+  reply_to?: string[];
+};
+
 type RequestBody = {
   submission?: SubmissionPayload;
   eventTypes?: string[];
@@ -67,6 +74,22 @@ function buildMessage(eventType: string, submission: SubmissionPayload) {
   return `New rider signup: ${name} applied from ${area} in ${activityZone} on ${platform}. Traffic potential: ${trafficPotential}. Phone: ${phone}.`;
 }
 
+function buildApplicantMessage(eventType: string, submission: SubmissionPayload) {
+  const name = submission.name || submission.full_name || 'there';
+
+  if (eventType === 'application_completed') {
+    return {
+      subject: 'GUBUDO OOH application update',
+      text: `Hi ${name},\n\nYour GUBUDO OOH application has been approved and is ready for the next step. Our team will contact you shortly with installation details.\n\nRegards,\nGUBUDO OOH`
+    };
+  }
+
+  return {
+    subject: 'We received your GUBUDO OOH application',
+    text: `Hi ${name},\n\nThank you for applying to GUBUDO OOH. We have received your application and our team will review it shortly. We will contact you using the phone number or email address you submitted.\n\nRegards,\nGUBUDO OOH`
+  };
+}
+
 async function postWebhook(url: string, payload: Record<string, unknown>) {
   const response = await fetch(url, {
     method: 'POST',
@@ -80,12 +103,11 @@ async function postWebhook(url: string, payload: Record<string, unknown>) {
   }
 }
 
-async function sendResendEmail(eventType: string, message: string) {
+async function sendResendEmail(payload: EmailPayload) {
   const apiKey = readEnv('RESEND_API_KEY');
-  const recipient = readEnv('ADMIN_EMAIL');
   const from = readEnv('RESEND_FROM_EMAIL');
 
-  if (!apiKey || !recipient || !from) {
+  if (!apiKey || !from || !payload.to.length) {
     return false;
   }
 
@@ -95,12 +117,7 @@ async function sendResendEmail(eventType: string, message: string) {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      from,
-      to: [recipient],
-      subject: `GUBUDO notification: ${eventType}`,
-      text: message
-    })
+    body: JSON.stringify({ from, ...payload })
   });
 
   if (!response.ok) {
@@ -165,6 +182,7 @@ serve(async (request) => {
   const newSignupWebhook = readEnv('NEW_SIGNUP_WEBHOOK_URL') || genericWebhook;
   const highValueWebhook = readEnv('HIGH_VALUE_WEBHOOK_URL') || genericWebhook;
   const completionWebhook = readEnv('COMPLETION_WEBHOOK_URL') || genericWebhook;
+  const adminEmail = readEnv('ADMIN_EMAIL') || 'sales@gubudo.com';
   const smsRecipient = readEnv('ADMIN_SMS_TO');
   const whatsappRecipient = readEnv('ADMIN_WHATSAPP_TO');
   const smsFrom = readEnv('TWILIO_FROM_SMS');
@@ -190,12 +208,34 @@ serve(async (request) => {
     }
 
     try {
-      const emailSent = await sendResendEmail(eventType, message);
-      if (emailSent) {
+      const adminEmailSent = await sendResendEmail({
+        to: [adminEmail],
+        subject: `GUBUDO notification: ${eventType}`,
+        text: message,
+        reply_to: submission.email ? [submission.email] : undefined
+      });
+      if (adminEmailSent) {
         results.push({ eventType, channel: 'email', ok: true });
       }
     } catch (error) {
       results.push({ eventType, channel: 'email', ok: false, detail: error instanceof Error ? error.message : 'Unknown email error' });
+    }
+
+    if (submission.email) {
+      try {
+        const applicantMessage = buildApplicantMessage(eventType, submission);
+        const applicantEmailSent = await sendResendEmail({
+          to: [submission.email],
+          subject: applicantMessage.subject,
+          text: applicantMessage.text,
+          reply_to: [adminEmail]
+        });
+        if (applicantEmailSent) {
+          results.push({ eventType, channel: 'applicant-email', ok: true });
+        }
+      } catch (error) {
+        results.push({ eventType, channel: 'applicant-email', ok: false, detail: error instanceof Error ? error.message : 'Unknown applicant email error' });
+      }
     }
 
     try {
