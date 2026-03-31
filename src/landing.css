@@ -173,7 +173,7 @@ body::before {
   position: relative;
   min-height: 100svh;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   padding-top: 80px;
   padding-bottom: clamp(2.5rem, 6vw, 5rem);
   overflow: hidden;
@@ -222,9 +222,9 @@ body::before {
 }
 
 .hero-grid-layout {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
   gap: clamp(2rem, 4vw, 3.5rem);
-  align-items: flex-end;
+  align-items: center;
 }
 
 .hero-eyebrow,
@@ -268,10 +268,11 @@ body::before {
 }
 
 .hero-headline {
-  font-size: clamp(3.5rem, 8vw, 8rem);
+  font-size: clamp(3.15rem, 6.7vw, 7rem);
   line-height: 0.95;
   letter-spacing: 0.02em;
   margin-bottom: 1rem;
+  max-width: 7.2ch;
 }
 
 .hero-headline .accent,
@@ -377,6 +378,7 @@ body::before {
 .hero-visual {
   display: grid;
   gap: 1rem;
+  align-content: start;
 }
 
 .hero-media-frame,
@@ -386,7 +388,7 @@ body::before {
 }
 
 .hero-media-frame {
-  min-height: 560px;
+  min-height: clamp(360px, 42vw, 560px);
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #090909;
@@ -485,25 +487,35 @@ body::before {
 .hero-metrics {
   position: relative;
   z-index: 3;
-  margin-top: -4.5rem;
-  margin-left: 1.25rem;
-  width: min(86%, 430px);
+  margin-top: 0;
+  margin-left: 0;
+  width: 100%;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.28);
 }
 
 .hero-thumbs {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
   gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.hero-thumbs::-webkit-scrollbar {
+  display: none;
 }
 
 .hero-thumb {
+  flex: 0 0 clamp(110px, 22vw, 132px);
   text-align: left;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   transition: border-color 0.2s, transform 0.2s, background 0.2s;
+  scroll-snap-align: start;
 }
 
 .hero-thumb img {
@@ -531,6 +543,21 @@ body::before {
 
 .hero-thumb.active span {
   color: var(--white);
+}
+
+@media (max-width: 1180px) {
+  .hero {
+    min-height: auto;
+    align-items: flex-start;
+  }
+
+  .hero-grid-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-visual {
+    max-width: 760px;
+  }
 }
 
 .proof {
@@ -1557,7 +1584,7 @@ body::before {
   }
 
   .hero-metrics {
-    width: calc(100% - 1.25rem);
+    width: 100%;
   }
 
   .steps-grid {
@@ -1605,16 +1632,6 @@ body::before {
 
   .hero-media-frame {
     min-height: 360px;
-  }
-
-  .hero-metrics {
-    margin-top: -2rem;
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .hero-thumbs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .proof-card {
@@ -1676,6 +1693,10 @@ body::before {
 }
 
 @media (max-width: 520px) {
+  .hero-thumb {
+    flex-basis: 104px;
+  }
+
   .fgrid {
     grid-template-columns: 1fr;
   }

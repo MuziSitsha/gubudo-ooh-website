@@ -1194,10 +1194,13 @@ export default function LandingApp() {
                         </label>
                         <input
                           type="tel"
+                          name="phone"
+                          inputMode="tel"
                           value={values.phone}
                           onChange={(event) => updateValue('phone', event.target.value)}
                           placeholder="082 123 4567 or +27821234567"
-                          autoComplete="tel"
+                          autoComplete="tel-national"
+                          enterKeyHint="done"
                         />
                         <div className="ferr" style={{ display: errors.phone ? 'block' : 'none' }}>
                           {errors.phone}
