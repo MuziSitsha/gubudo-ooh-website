@@ -24,6 +24,25 @@ Landing page and admin dashboard for converting delivery riders into GUBUDO OOH 
 9. Start the React frontend with `npm run dev`.
 10. Open `admin.html` and sign in with the approved admin account.
 
+## Free Test Deployment
+
+The simplest free shared test link for this project is Netlify because it supports Vite static sites well and can publish both pages from one URL.
+
+1. Push the latest code to GitHub.
+2. In Netlify, choose **Add new site** > **Import an existing project**.
+3. Connect the `MuziSitsha/gubudo-ooh-website` repository.
+4. Keep the default build command as `npm run build`.
+5. Keep the publish directory as `dist`.
+6. Deploy the site.
+
+After deploy:
+
+- User test link: `https://YOUR-SITE.netlify.app/`
+- Admin test link: `https://YOUR-SITE.netlify.app/admin.html`
+- Friendly admin shortcut: `https://YOUR-SITE.netlify.app/admin`
+
+`config.js` is now copied into the production build automatically, so the deployed site keeps the same public Typeform and Supabase settings used locally.
+
 ## Local Admin Bypass
 
 For local development only, `config.js` includes `admin.localDevBypass`. When it is `true`, the admin dashboard opens on `localhost` without Supabase auth so you can inspect the UI quickly. This bypass does not activate on non-local hosts.
