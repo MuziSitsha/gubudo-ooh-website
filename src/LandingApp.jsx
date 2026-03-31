@@ -1184,8 +1184,8 @@ export default function LandingApp() {
               GUBUDO <span>OOH</span>
             </div>
             <span className="foot-copy">2026 GUBUDO OOH. Gauteng, South Africa.</span>
-            <a href="mailto:info@gubudo.co.za" className="foot-link">
-              info@gubudo.co.za
+            <a href="mailto:sales@gubudo.com" className="foot-link">
+              sales@gubudo.com
             </a>
           </div>
         </div>
