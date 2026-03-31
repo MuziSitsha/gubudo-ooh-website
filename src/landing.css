@@ -268,11 +268,11 @@ body::before {
 }
 
 .hero-headline {
-  font-size: clamp(3.15rem, 6.7vw, 7rem);
-  line-height: 0.95;
+  font-size: clamp(2.8rem, 5.6vw, 5.8rem);
+  line-height: 0.96;
   letter-spacing: 0.02em;
   margin-bottom: 1rem;
-  max-width: 7.2ch;
+  max-width: 7.8ch;
 }
 
 .hero-headline .accent,
@@ -553,6 +553,11 @@ body::before {
 
   .hero-grid-layout {
     grid-template-columns: 1fr;
+  }
+
+  .hero-headline {
+    font-size: clamp(3rem, 8vw, 5.2rem);
+    max-width: 8.4ch;
   }
 
   .hero-visual {
