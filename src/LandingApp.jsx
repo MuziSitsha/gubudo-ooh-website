@@ -4,6 +4,11 @@ import '@typeform/embed/build/css/popup.css';
 import './landing.css';
 import { publicConfig, supabaseClient } from './lib/publicConfig.js';
 import { clearDraft, loadDraft, saveDraft, upsertLocalSubmission } from './lib/submissions.js';
+import fleetCityImage from './assets/landing/fleet-city.jpg';
+import studioBikeImage from './assets/landing/studio-bike.jpg';
+import cityRiderImage from './assets/landing/city-rider.jpg';
+import motionPackshotImage from './assets/landing/motion-packshot.jpg';
+import parkingProofImage from './assets/landing/parking-proof.jpg';
 
 const TOTAL_STEPS = 4;
 const PROCESS_STEPS = [
@@ -35,6 +40,68 @@ const TICKER_ITEMS = [
   'Applications reviewed daily',
   'Priority given to high-traffic riders',
   'Limited pilot - early riders earn more'
+];
+
+const HERO_IMAGES = [
+  {
+    src: fleetCityImage,
+    alt: 'A small fleet of Gubudo delivery riders in traffic with branded ad boxes mounted on their bikes.',
+    kicker: 'Fleet Visibility',
+    title: 'Built to stand out in real Gauteng traffic.',
+    copy: 'A clean, premium-looking box matters because riders need fast approval and brands need confidence.'
+  },
+  {
+    src: parkingProofImage,
+    alt: 'A Gubudo rider parked with several branded bikes visible in the background.',
+    kicker: 'Brand Presence',
+    title: 'Professional enough for advertisers, practical enough for riders.',
+    copy: 'The setup looks credible on the road, in parking lots, and at delivery pickup points where visibility matters.'
+  },
+  {
+    src: cityRiderImage,
+    alt: 'A Gubudo rider on a scooter in city traffic with a large branded delivery box.',
+    kicker: 'Street Ready',
+    title: 'One rider. One bike. One highly visible moving asset.',
+    copy: 'This is the real-world proof that riders can earn from the same routes they already work every day.'
+  },
+  {
+    src: motionPackshotImage,
+    alt: 'A moving Gubudo rider with two more branded riders following behind.',
+    kicker: 'Daily Exposure',
+    title: 'Seen on the move, not hidden in a static billboard corner.',
+    copy: 'Riders spend hours in active zones, which is exactly where your best applications create the most value.'
+  },
+  {
+    src: studioBikeImage,
+    alt: 'A polished studio-style render of a Gubudo rider on a branded bike.',
+    kicker: 'Premium Finish',
+    title: 'A cleaner product story from first glance to final install.',
+    copy: 'The system should feel premium, organized, and reliable from the very first click on the landing page.'
+  }
+];
+
+const PROOF_CARDS = [
+  {
+    src: motionPackshotImage,
+    alt: 'A Gubudo rider in motion on the road with branded bikes behind.',
+    label: 'High-Traffic Proof',
+    title: 'Designed for active delivery routes.',
+    text: 'Riders in busy zones create stronger visibility and better earning potential.'
+  },
+  {
+    src: parkingProofImage,
+    alt: 'A Gubudo rider parked beside a branded bike while other branded bikes stand in the background.',
+    label: 'Clean Brand Standard',
+    title: 'A setup that looks advertiser-ready.',
+    text: 'Sharp branding helps the pilot feel serious, premium, and easier to trust.'
+  },
+  {
+    src: studioBikeImage,
+    alt: 'A studio-style branded Gubudo rider on a motorbike.',
+    label: 'Professional Finish',
+    title: 'Polished enough to sell the vision fast.',
+    text: 'The page now shows the box as a real product, not just a concept.'
+  }
 ];
 
 const PERKS = [
@@ -581,9 +648,11 @@ export default function LandingApp() {
   const [typeformResponseId, setTypeformResponseId] = useState('');
   const [uploadReady, setUploadReady] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ message: '', tone: '' });
+  const [activeHeroImage, setActiveHeroImage] = useState(0);
   const typeformCompletedRef = useRef(false);
   const formattedPhone = formatPhoneForOtp(values.phone);
   const phoneVerified = !publicConfig.otpEnabled || (formattedPhone && otpVerifiedPhone === formattedPhone);
+  const currentHeroImage = HERO_IMAGES[activeHeroImage];
 
   useEffect(() => {
     const onScroll = () => {
@@ -617,6 +686,16 @@ export default function LandingApp() {
       saveDraft({ ...values, step });
     }
   }, [step, success, values]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setActiveHeroImage((current) => (current + 1) % HERO_IMAGES.length);
+    }, 4500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const buttonText = step === TOTAL_STEPS ? 'Submit Application' : 'Continue';
   const qualityScore = calcQualityScore(values);
@@ -902,26 +981,59 @@ export default function LandingApp() {
                   <span className="hero-note">Applications reviewed daily</span>
                 </div>
               </div>
-              <div className="hero-card">
-                <div className="card-label">Limited pilot - early riders earn more</div>
-                <div className="stat-num">R500</div>
-                <div className="stat-desc">Base Monthly</div>
-                <div className="card-div"></div>
-                <div className="card-rows">
-                  <div className="card-row">
-                    <span className="cr-label">Install Cost</span>
-                    <span className="cr-val g">FREE</span>
+              <div className="hero-visual fu">
+                <div className="hero-media-frame">
+                  <img
+                    src={currentHeroImage.src}
+                    alt={currentHeroImage.alt}
+                    className="hero-media-image"
+                    loading="eager"
+                    fetchPriority="high"
+                  />
+                  <div className="hero-media-badge">
+                    {String(activeHeroImage + 1).padStart(2, '0')} / {String(HERO_IMAGES.length).padStart(2, '0')}
                   </div>
-                  <div className="card-row">
-                    <span className="cr-label">Hot Zone Bonus</span>
-                    <span className="cr-val y">Variable</span>
-                  </div>
-                  <div className="card-row">
-                    <span className="cr-label">Deposit</span>
-                    <span className="cr-val">R1,000 (Refundable)</span>
+                  <div className="hero-media-copy">
+                    <div className="card-label">{currentHeroImage.kicker}</div>
+                    <div className="hero-media-title">{currentHeroImage.title}</div>
+                    <p>{currentHeroImage.copy}</p>
                   </div>
                 </div>
-                <div className="pilot-tag">Top riders in high-traffic zones earn more.</div>
+                <div className="hero-card hero-metrics">
+                  <div className="card-label">Limited pilot - early riders earn more</div>
+                  <div className="stat-num">R500</div>
+                  <div className="stat-desc">Base Monthly</div>
+                  <div className="card-div"></div>
+                  <div className="card-rows">
+                    <div className="card-row">
+                      <span className="cr-label">Install Cost</span>
+                      <span className="cr-val g">FREE</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="cr-label">Hot Zone Bonus</span>
+                      <span className="cr-val y">Variable</span>
+                    </div>
+                    <div className="card-row">
+                      <span className="cr-label">Deposit</span>
+                      <span className="cr-val">R1,000 (Refundable)</span>
+                    </div>
+                  </div>
+                  <div className="pilot-tag">Top riders in high-traffic zones earn more.</div>
+                </div>
+                <div className="hero-thumbs" aria-label="Gubudo rider gallery">
+                  {HERO_IMAGES.map((image, index) => (
+                    <button
+                      key={image.title}
+                      type="button"
+                      className={`hero-thumb${index === activeHeroImage ? ' active' : ''}`}
+                      onClick={() => setActiveHeroImage(index)}
+                      aria-pressed={index === activeHeroImage}
+                    >
+                      <img src={image.src} alt={image.alt} />
+                      <span>{image.kicker}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -948,6 +1060,32 @@ export default function LandingApp() {
           </div>
         </div>
       </div>
+
+      <section className="section proof">
+        <div className="container">
+          <div className="proof-head">
+            <div className="fu">
+              <div className="sec-label">Visual Proof</div>
+              <h2 className="sec-title">Show the product like it already works.</h2>
+            </div>
+            <p className="proof-copy fu">
+              These visuals make the model easier to understand fast: branded boxes, real road presence, and a setup that feels credible enough for riders and operations to trust.
+            </p>
+          </div>
+          <div className="proof-grid">
+            {PROOF_CARDS.map((item) => (
+              <article key={item.title} className="proof-card fu">
+                <img src={item.src} alt={item.alt} className="proof-card-image" loading="lazy" />
+                <div className="proof-card-body">
+                  <div className="proof-card-label">{item.label}</div>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="section" id="how">
         <div className="container">
