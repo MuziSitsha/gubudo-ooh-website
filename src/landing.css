@@ -272,22 +272,24 @@ body::before {
   line-height: 0.94;
   letter-spacing: 0.01em;
   margin-bottom: 1.1rem;
-  max-width: 8.2ch;
+  max-width: 8.6ch;
 }
 
 .headline-main,
 .headline-accent {
-  display: inline-block;
+  display: block;
 }
 
 .headline-main {
   max-width: 7.2ch;
+  text-wrap: balance;
 }
 
 .headline-accent {
-  font-size: 0.88em;
+  font-size: 0.8em;
   line-height: 0.98;
-  margin-top: 0.18em;
+  margin-top: 0.22em;
+  max-width: 7ch;
 }
 
 .hero-headline .accent,
@@ -1647,7 +1649,18 @@ body::before {
   }
 
   .hero-headline {
-    font-size: clamp(3rem, 17vw, 4.5rem);
+    font-size: clamp(2.1rem, 11.6vw, 3.15rem);
+    line-height: 0.98;
+    max-width: 100%;
+  }
+
+  .headline-main {
+    max-width: 6.3ch;
+  }
+
+  .headline-accent {
+    font-size: 0.74em;
+    max-width: 6.6ch;
   }
 
   .hero-media-frame {
@@ -1713,6 +1726,14 @@ body::before {
 }
 
 @media (max-width: 520px) {
+  .hero-headline {
+    font-size: clamp(2rem, 10.8vw, 2.85rem);
+  }
+
+  .hero-eyebrow {
+    margin-bottom: 1rem;
+  }
+
   .hero-thumb {
     flex-basis: 104px;
   }
@@ -1743,8 +1764,8 @@ body::before {
   }
 
   .hero-sub {
-    font-size: 0.88rem;
-    line-height: 1.65;
+    font-size: 0.84rem;
+    line-height: 1.6;
   }
 
   .hero-actions {

@@ -949,8 +949,8 @@ export default function LandingApp() {
               <div>
                 <div className="hero-eyebrow">Gauteng Rider Pilot</div>
                 <h1 className="hero-headline">
-                  <span className="headline-main">Earn R500/month using your bike.</span>
-                  <br />
+                  <span className="headline-main">Earn R500/month</span>
+                  <span className="headline-main">using your bike.</span>
                   <span className="accent headline-accent">We install the box.</span>
                 </h1>
                 <p className="hero-sub">
