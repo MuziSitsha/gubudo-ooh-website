@@ -949,9 +949,9 @@ export default function LandingApp() {
               <div>
                 <div className="hero-eyebrow">Gauteng Rider Pilot</div>
                 <h1 className="hero-headline">
-                  Earn R500/month using your bike.
+                  <span className="headline-main">Earn R500/month using your bike.</span>
                   <br />
-                  <span className="accent">We install the box.</span>
+                  <span className="accent headline-accent">We install the box.</span>
                 </h1>
                 <p className="hero-sub">
                   No cost to install. Earn more in busy areas. Limited spots in Gauteng.

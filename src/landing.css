@@ -268,11 +268,26 @@ body::before {
 }
 
 .hero-headline {
-  font-size: clamp(2.8rem, 5.6vw, 5.8rem);
-  line-height: 0.96;
-  letter-spacing: 0.02em;
-  margin-bottom: 1rem;
-  max-width: 7.8ch;
+  font-size: clamp(2.45rem, 4.9vw, 5.1rem);
+  line-height: 0.94;
+  letter-spacing: 0.01em;
+  margin-bottom: 1.1rem;
+  max-width: 8.2ch;
+}
+
+.headline-main,
+.headline-accent {
+  display: inline-block;
+}
+
+.headline-main {
+  max-width: 7.2ch;
+}
+
+.headline-accent {
+  font-size: 0.88em;
+  line-height: 0.98;
+  margin-top: 0.18em;
 }
 
 .hero-headline .accent,
@@ -556,8 +571,8 @@ body::before {
   }
 
   .hero-headline {
-    font-size: clamp(3rem, 8vw, 5.2rem);
-    max-width: 8.4ch;
+    font-size: clamp(2.7rem, 7.4vw, 4.7rem);
+    max-width: 8.8ch;
   }
 
   .hero-visual {
