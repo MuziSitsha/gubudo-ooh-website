@@ -967,7 +967,7 @@ export default function LandingApp() {
                   </li>
                   <li className="hero-prop">
                     <span className="prop-dot"></span>
-                    extra incentives in high-traffic zones
+                    Extra incentives in high-traffic zones
                   </li>
                   <li className="hero-prop">
                     <span className="prop-dot"></span>
